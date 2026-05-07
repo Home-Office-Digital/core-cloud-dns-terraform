@@ -62,7 +62,7 @@ resource "aws_route53_resolver_firewall_rule_group_association" "assoc" {
   firewall_rule_group_id = aws_route53_resolver_firewall_rule_group.rule_group.id
   priority               = var.rulegroup_association_priority
   vpc_id                 = var.vpc_id
-  mutation_protection    = "DISABLED"
+  mutation_protection    = "ENABLED"
   tags = merge(
     var.tags,
     {
