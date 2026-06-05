@@ -36,27 +36,52 @@ resource "aws_security_group" "cc_poise_resolver_sg" {
   }
 
   # -----------------
-  # EBSA DNS
+  # EBSA NOTPROD DNS
   # -----------------
   dynamic "egress" {
-    for_each = var.ebsa_dns_ips
+    for_each = var.ebsa_notprod_dns_ips
     content {
       from_port   = 53
       to_port     = 53
       protocol    = "udp"
       cidr_blocks = ["${egress.value}/32"]
-      description = "Allow outbound DNS (UDP) to EBSA DNS ${egress.value}"
+      description = "Allow outbound DNS (UDP) to EBSA NOTPROD DNS ${egress.value}"
     }
   }
 
   dynamic "egress" {
-    for_each = var.ebsa_dns_ips
+    for_each = var.ebsa_notprod_dns_ips
     content {
       from_port   = 53
       to_port     = 53
       protocol    = "tcp"
       cidr_blocks = ["${egress.value}/32"]
-      description = "Allow outbound DNS (TCP) to EBSA DNS ${egress.value}"
+      description = "Allow outbound DNS (TCP) to EBSA NOTPROD DNS ${egress.value}"
+    }
+  }
+
+  # -----------------
+  # EBSA PROD DNS
+  # -----------------
+  dynamic "egress" {
+    for_each = var.ebsa_prod_dns_ips
+    content {
+      from_port   = 53
+      to_port     = 53
+      protocol    = "udp"
+      cidr_blocks = ["${egress.value}/32"]
+      description = "Allow outbound DNS (UDP) to EBSA PROD DNS ${egress.value}"
+    }
+  }
+
+  dynamic "egress" {
+    for_each = var.ebsa_prod_dns_ips
+    content {
+      from_port   = 53
+      to_port     = 53
+      protocol    = "tcp"
+      cidr_blocks = ["${egress.value}/32"]
+      description = "Allow outbound DNS (TCP) to EBSA PROD DNS ${egress.value}"
     }
   }
 }
