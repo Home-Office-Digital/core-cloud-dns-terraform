@@ -20,17 +20,17 @@ resource "aws_kms_key" "dnssec_key" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "Enable IAM User Permissions"
-        Effect    = "Allow"
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
         Principal = {
           AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
         }
-        Action    = "kms:*"
-        Resource  = "*"
+        Action   = "kms:*"
+        Resource = "*"
       },
       {
-        Sid      = "Allow Route53 DNSSEC"
-        Effect   = "Allow"
+        Sid    = "Allow Route53 DNSSEC"
+        Effect = "Allow"
         Principal = {
           Service = "dnssec-route53.amazonaws.com"
         }
@@ -52,7 +52,7 @@ resource "aws_route53_key_signing_key" "ksk" {
   key_management_service_arn = aws_kms_key.dnssec_key[0].arn
 }
 
-resource "aws_route53_dnssec" "dnssec" {
+resource "aws_route53_hosted_zone_dnssec" "dnssec" {
   count          = var.enable_dnssec ? 1 : 0
   hosted_zone_id = aws_route53_zone.workload_zone.zone_id
 }
