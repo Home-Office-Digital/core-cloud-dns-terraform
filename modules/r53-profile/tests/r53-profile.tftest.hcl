@@ -14,6 +14,10 @@ variables {
   ebsa_prod_domain_names    = ["ebsa-prod.example.local"]
   ebsa_notprod_dns_ips      = ["10.223.6.134", "10.223.6.6"]
   ebsa_prod_dns_ips         = ["10.223.2.134", "10.223.2.6"]
+  apa_hob_ibm_preprod_domain_names = ["ibm-preprod.example.local"]
+  apa_hob_ibm_preprod_dns_ips      = ["10.224.6.134", "10.224.6.6"]
+  apa_hob_ibm_prod_domain_names    = ["ibm-prod.example.local"]
+  apa_hob_ibm_prod_dns_ips         = ["10.224.2.134", "10.224.2.6"]
   ncsc_dns_ips              = ["10.228.10.10", "10.228.11.10"]
 
   cc_aws_orgnisation_arn = "arn:aws:organizations::123456789012:organization/o-exampleorgid"
@@ -135,6 +139,8 @@ run "plan_r53_profile_without_optional_forwarding_domains" {
     poise_domain_names        = []
     ebsa_notprod_domain_names = []
     ebsa_prod_domain_names    = []
+    apa_hob_ibm_preprod_domain_names = []
+    apa_hob_ibm_prod_domain_names    = []
   }
 
   assert {
