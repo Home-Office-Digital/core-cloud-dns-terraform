@@ -52,6 +52,26 @@ variable "ebsa_prod_dns_ips" {
   # default = ["10.223.2.134", "10.223.2.6"]
 }
 
+variable "apa_hob_ibm_preprod_domain_names" {
+  type = list(string)
+  # example:
+  # default = ["bmps.homeoffice.gov.uk"]
+}
+
+variable "apa_hob_ibm_preprod_dns_ips" {
+  type = list(string)
+}
+
+variable "apa_hob_ibm_prod_domain_names" {
+  type = list(string)
+  # example:
+  # default = ["bmps.homeoffice.gov.uk"]
+}
+
+variable "apa_hob_ibm_prod_dns_ips" {
+  type = list(string)
+}
+
 variable "ncsc_dns_ips" {
   description = "List of NCSC PDNS IP addresses"
   type        = list(string)
