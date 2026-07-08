@@ -8,13 +8,17 @@ variables {
   vpc_name = "network-vpc"
   vpc_id   = "vpc-1234567890abcdef0"
 
-  poise_domain_names        = ["poise.homeoffice.local"]
-  poise_dns_ips             = ["10.228.8.69", "10.228.9.69"]
-  ebsa_notprod_domain_names = ["ebsa-notprod.example.local"]
-  ebsa_prod_domain_names    = ["ebsa-prod.example.local"]
-  ebsa_notprod_dns_ips      = ["10.223.6.134", "10.223.6.6"]
-  ebsa_prod_dns_ips         = ["10.223.2.134", "10.223.2.6"]
-  ncsc_dns_ips              = ["10.228.10.10", "10.228.11.10"]
+  poise_domain_names        = ["test-poise.example.local"]
+  poise_dns_ips             = ["192.0.2.10", "192.0.2.11"]
+  ebsa_notprod_domain_names = ["test-ebsa-notprod.example.local"]
+  ebsa_prod_domain_names    = ["test-ebsa-prod.example.local"]
+  ebsa_notprod_dns_ips      = ["198.51.100.10", "198.51.100.11"]
+  ebsa_prod_dns_ips         = ["198.51.100.20", "198.51.100.21"]
+  apa_hob_ibm_preprod_domain_names = ["test-ibm-preprod.example.local"]
+  apa_hob_ibm_preprod_dns_ips      = ["203.0.113.10", "203.0.113.11"]
+  apa_hob_ibm_prod_domain_names    = ["test-ibm-prod.example.local"]
+  apa_hob_ibm_prod_dns_ips         = ["203.0.113.20", "203.0.113.21"]
+  ncsc_dns_ips              = ["192.0.2.30", "192.0.2.31"]
 
   cc_aws_orgnisation_arn = "arn:aws:organizations::123456789012:organization/o-exampleorgid"
 
@@ -135,6 +139,8 @@ run "plan_r53_profile_without_optional_forwarding_domains" {
     poise_domain_names        = []
     ebsa_notprod_domain_names = []
     ebsa_prod_domain_names    = []
+    apa_hob_ibm_preprod_domain_names = []
+    apa_hob_ibm_prod_domain_names    = []
   }
 
   assert {
