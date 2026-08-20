@@ -72,6 +72,12 @@ variable "apa_hob_ibm_prod_dns_ips" {
   type = list(string)
 }
 
+variable "ncsc_domain_names" {
+  description = "List of domain names to forward explicitly via NCSC PDNS outbound endpoint"
+  type        = list(string)
+  default     = []
+}
+
 variable "ncsc_dns_ips" {
   description = "List of NCSC PDNS IP addresses"
   type        = list(string)
