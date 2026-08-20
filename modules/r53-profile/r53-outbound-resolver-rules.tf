@@ -78,6 +78,44 @@ resource "aws_route53profiles_resource_association" "cc_ncsc_resolver_rule_assoc
 }
 
 #############################
+# NCSC PDNS DOMAIN-SPECIFIC FORWARDING RULES
+#############################
+resource "aws_route53_resolver_rule" "ncsc_domain_specific" {
+  for_each = toset(var.ncsc_domain_names)
+
+  name                 = substr("fwd-to-ncsc-${replace(each.key, ".", "-")}", 0, 64)
+  domain_name          = each.key
+  rule_type            = "FORWARD"
+  resolver_endpoint_id = aws_route53_resolver_endpoint.cc_ncsc_outbound_endpoint.id
+
+  dynamic "target_ip" {
+    for_each = var.ncsc_dns_ips
+    content {
+      ip = target_ip.value
+    }
+  }
+
+  tags = merge(
+    var.tags,
+    {
+      RuleType    = "FORWARD"
+      Description = "Forwards ${each.key} to NCSC PDNS"
+    }
+  )
+}
+
+#############################
+# Associate each NCSC domain-specific rule to the R53 Profile
+#############################
+resource "aws_route53profiles_resource_association" "ncsc_domain_specific_assoc" {
+  for_each = aws_route53_resolver_rule.ncsc_domain_specific
+
+  name         = substr("cc-ncsc-domain-assoc-${substr(md5(each.key), 0, 8)}", 0, 64)
+  profile_id   = aws_route53profiles_profile.cc_r53_profile.id
+  resource_arn = each.value.arn
+}
+
+#############################
 # Resolver rules - EBSA NOTPROD (one per domain)
 #############################
 resource "aws_route53_resolver_rule" "ebsa_notprod" {
