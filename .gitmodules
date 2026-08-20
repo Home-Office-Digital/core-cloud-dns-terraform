@@ -1,0 +1,3 @@
+[submodule ".kiro/steering/common"]
+	path = .kiro/steering/common
+	url = https://github.com/Home-Office-Digital/core-cloud-common-kiro.git

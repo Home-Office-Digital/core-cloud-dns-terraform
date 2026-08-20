@@ -32,14 +32,50 @@ variable "poise_dns_ips" {
   # default = ["10.228.8.69", "10.228.9.69"]
 }
 
-variable "ebsa_domain_names" {
+variable "ebsa_notprod_domain_names" {
   type = list(string)
 }
 
-variable "ebsa_dns_ips" {
+variable "ebsa_prod_domain_names" {
+  type = list(string)
+}
+
+variable "ebsa_notprod_dns_ips" {
   type = list(string)
   # example:
-  # default = ["10.228.8.69", "10.228.9.69"]
+  # default = ["10.223.6.134", "10.223.6.6"]
+}
+
+variable "ebsa_prod_dns_ips" {
+  type = list(string)
+  # example:
+  # default = ["10.223.2.134", "10.223.2.6"]
+}
+
+variable "apa_hob_ibm_preprod_domain_names" {
+  type = list(string)
+  # example:
+  # default = ["bmps.homeoffice.gov.uk"]
+}
+
+variable "apa_hob_ibm_preprod_dns_ips" {
+  type = list(string)
+}
+
+variable "apa_hob_ibm_prod_domain_names" {
+  type = list(string)
+  # example:
+  # default = ["bmps.homeoffice.gov.uk"]
+}
+
+variable "apa_hob_ibm_prod_dns_ips" {
+  type = list(string)
+}
+
+variable "ncsc_domain_names" {
+  description = "List of domain names to forward explicitly via NCSC PDNS outbound endpoint"
+  type        = list(string)
+  default     = []
 }
 
 variable "ncsc_dns_ips" {

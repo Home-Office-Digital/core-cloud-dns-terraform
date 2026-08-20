@@ -4,7 +4,7 @@ metadata:
   name: core-cloud-dns-terraform
   description: A repo for Core Cloud DNS Configuration.
   annotations:
-    github.com/project-slug: UKHomeOffice/core-cloud-dns-terraform
+    github.com/project-slug: Home-Office-Digital/core-cloud-dns-terraform
 spec:
   type: service
   owner: core-cloud-devops
