@@ -183,3 +183,135 @@ run "plan_internal_dns_without_additional_domains_creates_none" {
     error_message = "No additional profile associations should be created when the list is empty (default)."
   }
 }
+
+run "plan_internal_dns_dnssec_disabled_by_default" {
+  command = plan
+
+  override_data {
+    target = data.aws_vpcs.selected
+    values = {
+      ids = ["vpc-1234567890abcdef0"]
+    }
+  }
+
+  # DNSSEC defaults to off: none of the primary DNSSEC resources are created.
+  assert {
+    condition     = length(aws_kms_key.dnssec_key) == 0
+    error_message = "No DNSSEC KMS key should be created when enable_dnssec is false (default)."
+  }
+
+  assert {
+    condition     = length(aws_route53_key_signing_key.ksk) == 0
+    error_message = "No key signing key should be created when DNSSEC is disabled."
+  }
+
+  assert {
+    condition     = length(aws_route53_hosted_zone_dnssec.dnssec) == 0
+    error_message = "No hosted-zone DNSSEC resource should be created when DNSSEC is disabled."
+  }
+}
+
+run "plan_internal_dns_dnssec_enabled" {
+  command = plan
+
+  variables {
+    enable_dnssec = true
+  }
+
+  override_data {
+    target = data.aws_vpcs.selected
+    values = {
+      ids = ["vpc-1234567890abcdef0"]
+    }
+  }
+
+  # Primary domain DNSSEC resources are created and sign the PUBLIC zone.
+  assert {
+    condition     = length(aws_kms_key.dnssec_key) == 1
+    error_message = "A DNSSEC KMS key should be created when enable_dnssec is true."
+  }
+
+  assert {
+    condition     = length(aws_route53_key_signing_key.ksk) == 1
+    error_message = "A key signing key should be created when DNSSEC is enabled."
+  }
+
+  assert {
+    condition     = aws_route53_key_signing_key.ksk[0].name == "dnssec-ksk"
+    error_message = "Key signing key should use the expected stable name."
+  }
+
+  assert {
+    condition     = length(aws_route53_hosted_zone_dnssec.dnssec) == 1
+    error_message = "A hosted-zone DNSSEC resource should be created when DNSSEC is enabled."
+  }
+}
+
+run "plan_internal_dns_additional_domains_dnssec_enabled" {
+  command = plan
+
+  variables {
+    enable_dnssec = true
+    additional_internal_domain_names = [
+      "extra1.np.internal.example.gov.uk",
+      "extra2.np.internal.example.gov.uk",
+    ]
+  }
+
+  override_data {
+    target = data.aws_vpcs.selected
+    values = {
+      ids = ["vpc-1234567890abcdef0"]
+    }
+  }
+
+  # One DNSSEC resource set per additional domain when DNSSEC is enabled.
+  assert {
+    condition     = length(aws_kms_key.additional_dnssec_keys) == 2
+    error_message = "One additional DNSSEC KMS key should be created per additional domain."
+  }
+
+  assert {
+    condition     = length(aws_route53_key_signing_key.additional_ksks) == 2
+    error_message = "One additional key signing key should be created per additional domain."
+  }
+
+  assert {
+    condition     = length(aws_route53_hosted_zone_dnssec.additional_dnssec) == 2
+    error_message = "One additional hosted-zone DNSSEC resource should be created per additional domain."
+  }
+}
+
+run "plan_internal_dns_additional_domains_dnssec_disabled" {
+  command = plan
+
+  variables {
+    enable_dnssec = false
+    additional_internal_domain_names = [
+      "extra1.np.internal.example.gov.uk",
+    ]
+  }
+
+  override_data {
+    target = data.aws_vpcs.selected
+    values = {
+      ids = ["vpc-1234567890abcdef0"]
+    }
+  }
+
+  # Additional zones still created, but no DNSSEC resources when disabled.
+  assert {
+    condition     = length(aws_route53_zone.additional_public) == 1
+    error_message = "Additional public zone should still be created when DNSSEC is disabled."
+  }
+
+  assert {
+    condition     = length(aws_kms_key.additional_dnssec_keys) == 0
+    error_message = "No additional DNSSEC KMS keys should exist when DNSSEC is disabled."
+  }
+
+  assert {
+    condition     = length(aws_route53_hosted_zone_dnssec.additional_dnssec) == 0
+    error_message = "No additional hosted-zone DNSSEC resources should exist when DNSSEC is disabled."
+  }
+}

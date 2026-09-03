@@ -20,6 +20,12 @@ variable "route53_profile_id" {
   type        = string
 }
 
+variable "enable_dnssec" {
+  type        = bool
+  default     = false
+  description = "Enable Route53 DNSSEC signing"
+}
+
 variable "tags" {
   description = "Tags to apply to created resources."
   type        = map(string)

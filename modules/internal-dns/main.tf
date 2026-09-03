@@ -42,8 +42,56 @@ resource "aws_route53_zone" "private" {
 # Public Hosted Zone (for ACM DNS validation records)
 resource "aws_route53_zone" "public" {
   name    = local.domain
-  comment = "Public hosted zone for ${local.domain} (ACM validation records"
+  comment = "Public hosted zone for ${local.domain} (ACM validation records)"
   tags    = var.tags
+}
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_kms_key" "dnssec_key" {
+  count               = var.enable_dnssec ? 1 : 0
+  description         = "KMS key for DNSSEC signing for ${local.domain} (ACM validation records)"
+  enable_key_rotation = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow Route53 DNSSEC"
+        Effect = "Allow"
+        Principal = {
+          Service = "dnssec-route53.amazonaws.com"
+        }
+        Action = [
+          "kms:DescribeKey",
+          "kms:GetPublicKey",
+          "kms:Sign"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_route53_key_signing_key" "ksk" {
+  count                      = var.enable_dnssec ? 1 : 0
+  hosted_zone_id             = aws_route53_zone.public.zone_id
+  name                       = "dnssec-ksk"
+  key_management_service_arn = aws_kms_key.dnssec_key[0].arn
+}
+
+resource "aws_route53_hosted_zone_dnssec" "dnssec" {
+  count          = var.enable_dnssec ? 1 : 0
+  hosted_zone_id = aws_route53_zone.public.zone_id
 }
 
 ############################
@@ -93,6 +141,53 @@ resource "aws_route53_zone" "additional_public" {
   name     = each.key
   comment  = "Public hosted zone for ${each.key} (ACM validation records"
   tags     = var.tags
+}
+
+#### Additional Domain Name DNSSEC
+resource "aws_kms_key" "additional_dnssec_keys" {
+  for_each            = var.enable_dnssec ? toset(var.additional_internal_domain_names) : toset([])
+  description         = "KMS key for DNSSEC signing for ${each.key}"
+  enable_key_rotation = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow Route53 DNSSEC"
+        Effect = "Allow"
+        Principal = {
+          Service = "dnssec-route53.amazonaws.com"
+        }
+        Action = [
+          "kms:DescribeKey",
+          "kms:GetPublicKey",
+          "kms:Sign"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_route53_key_signing_key" "additional_ksks" {
+  for_each                   = var.enable_dnssec ? try(toset(var.additional_internal_domain_names), toset([])) : toset([])
+  hosted_zone_id             = aws_route53_zone.additional_public[each.key].zone_id
+  name                       = "dnssec-ksk"
+  key_management_service_arn = aws_kms_key.additional_dnssec_keys[each.key].arn
+}
+
+resource "aws_route53_hosted_zone_dnssec" "additional_dnssec" {
+  for_each       = var.enable_dnssec ? try(toset(var.additional_internal_domain_names), toset([])) : toset([])
+  hosted_zone_id = aws_route53_zone.additional_public[each.key].zone_id
 }
 
 ############################
