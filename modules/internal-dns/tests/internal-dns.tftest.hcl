@@ -430,3 +430,53 @@ run "plan_internal_dns_additional_domains_query_logging_enabled" {
     error_message = "One additional private-zone query log should be created per additional domain."
   }
 }
+
+run "plan_internal_dns_query_logging_kms_key_created_when_enabled" {
+  command = plan
+
+  variables {
+    enable_r53_query_logging = true
+    additional_internal_domain_names = [
+      "extra1.np.internal.example.gov.uk",
+    ]
+  }
+
+  override_data {
+    target = data.aws_vpcs.selected
+    values = {
+      ids = ["vpc-1234567890abcdef0"]
+    }
+  }
+
+  # A KMS key is created for query-log encryption when logging is enabled.
+  assert {
+    condition     = length(aws_kms_key.r53_query_log_key) == 1
+    error_message = "A KMS key should be created for query-log encryption when logging is enabled."
+  }
+
+  assert {
+    condition     = aws_kms_key.r53_query_log_key[0].enable_key_rotation == true
+    error_message = "The query-log KMS key should have key rotation enabled."
+  }
+
+  # Note: all four log groups (public + private, primary + additional) set
+  # kms_key_id = aws_kms_key.r53_query_log_key[0].arn in main.tf. Under a mocked
+  # plan the concrete ARN is unknown, so the cross-reference cannot be asserted
+  # here; presence of the key plus a successful plan confirm the wiring.
+}
+
+run "plan_internal_dns_query_logging_kms_key_absent_when_disabled" {
+  command = plan
+
+  override_data {
+    target = data.aws_vpcs.selected
+    values = {
+      ids = ["vpc-1234567890abcdef0"]
+    }
+  }
+
+  assert {
+    condition     = length(aws_kms_key.r53_query_log_key) == 0
+    error_message = "No query-log KMS key should be created when query logging is disabled (default)."
+  }
+}

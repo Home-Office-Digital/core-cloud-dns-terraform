@@ -119,16 +119,65 @@ resource "aws_route53profiles_resource_association" "phz_to_profile" {
 }
 
 #Query Logging Option
+# KMS key used to encrypt the Route 53 query-log CloudWatch log groups.
+# The key policy must allow the CloudWatch Logs service principal to use the
+# key, otherwise log group creation fails.
+data "aws_region" "current" {}
+
+resource "aws_kms_key" "r53_query_log_key" {
+  count                   = var.enable_r53_query_logging ? 1 : 0
+  description             = "KMS key for Route53 query log encryption for ${local.domain}"
+  enable_key_rotation     = true
+  deletion_window_in_days = 7
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow CloudWatch Logs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/route53/*"
+          }
+        }
+      }
+    ]
+  })
+}
+
 resource "aws_cloudwatch_log_group" "r53_log_group" {
   count             = var.enable_r53_query_logging ? 1 : 0
   name              = "/aws/route53/${local.domain}"
   retention_in_days = var.enable_r53_query_logging_length
+  kms_key_id        = aws_kms_key.r53_query_log_key[0].arn
 }
 
 resource "aws_cloudwatch_log_group" "r53_log_group_phz" {
   count             = var.enable_r53_query_logging ? 1 : 0
   name              = "/aws/route53/phz_${local.domain}"
   retention_in_days = var.enable_r53_query_logging_length
+  kms_key_id        = aws_kms_key.r53_query_log_key[0].arn
 }
 
 resource "aws_route53_query_log" "r53_query_log" {
@@ -237,12 +286,14 @@ resource "aws_cloudwatch_log_group" "additional_r53_log_groups" {
   for_each          = var.enable_r53_query_logging ? try(toset(var.additional_internal_domain_names), toset([])) : toset([])
   name              = "/aws/route53/${each.key}"
   retention_in_days = var.enable_r53_query_logging_length
+  kms_key_id        = aws_kms_key.r53_query_log_key[0].arn
 }
 
 resource "aws_cloudwatch_log_group" "additional_r53_log_groups_phz" {
   for_each          = var.enable_r53_query_logging ? try(toset(var.additional_internal_domain_names), toset([])) : toset([])
   name              = "/aws/route53/phz_${each.key}"
   retention_in_days = var.enable_r53_query_logging_length
+  kms_key_id        = aws_kms_key.r53_query_log_key[0].arn
 }
 
 resource "aws_route53_query_log" "additional_r53_query_logs" {

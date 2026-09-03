@@ -34,6 +34,6 @@ variable "enable_r53_query_logging" {
 
 variable "enable_r53_query_logging_length" {
   type        = number
-  default     = 30
+  default     = 365
   description = "Length in days to store route53 query logs"
 }

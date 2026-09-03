@@ -274,3 +274,43 @@ run "plan_additional_domains_query_logging_disabled" {
     error_message = "No additional query logs should exist when query logging is disabled."
   }
 }
+
+run "plan_query_logging_kms_key_created_when_enabled" {
+  command = plan
+
+  variables {
+    enable_r53_query_logging = true
+    additional_domain_names = [
+      "extra1.example.gov.uk",
+    ]
+  }
+
+  # A KMS key is created for query-log encryption when logging is enabled.
+  assert {
+    condition     = length(aws_kms_key.r53_query_log_key) == 1
+    error_message = "A KMS key should be created for query-log encryption when logging is enabled."
+  }
+
+  assert {
+    condition     = aws_kms_key.r53_query_log_key[0].enable_key_rotation == true
+    error_message = "The query-log KMS key should have key rotation enabled."
+  }
+
+  # Note: the log groups reference aws_kms_key.r53_query_log_key[0].arn for
+  # kms_key_id (see main.tf). Under a mocked plan the concrete ARN is unknown,
+  # so the cross-reference cannot be asserted here; presence of the key plus a
+  # successful plan confirm the wiring is in place.
+}
+
+run "plan_query_logging_kms_key_absent_when_disabled" {
+  command = plan
+
+  variables {
+    enable_r53_query_logging = false
+  }
+
+  assert {
+    condition     = length(aws_kms_key.r53_query_log_key) == 0
+    error_message = "No query-log KMS key should be created when query logging is disabled."
+  }
+}
