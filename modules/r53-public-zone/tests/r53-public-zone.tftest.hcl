@@ -185,3 +185,92 @@ run "plan_no_additional_domains_by_default" {
     error_message = "additional_zone_ids should be an empty map when no additional domains are set."
   }
 }
+
+run "plan_query_logging_disabled_by_default" {
+  command = plan
+
+  # Query logging defaults to off.
+  assert {
+    condition     = length(aws_cloudwatch_log_group.r53_log_group) == 0
+    error_message = "No log group should be created when query logging is disabled (default)."
+  }
+
+  assert {
+    condition     = length(aws_route53_query_log.r53_query_log) == 0
+    error_message = "No query log should be created when query logging is disabled (default)."
+  }
+}
+
+run "plan_query_logging_enabled" {
+  command = plan
+
+  variables {
+    enable_r53_query_logging        = true
+    enable_r53_query_logging_length = 90
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_group.r53_log_group) == 1
+    error_message = "A log group should be created when query logging is enabled."
+  }
+
+  assert {
+    condition     = length(aws_route53_query_log.r53_query_log) == 1
+    error_message = "A query log should be created when query logging is enabled."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.r53_log_group[0].retention_in_days == 90
+    error_message = "Log group retention should use the configured enable_r53_query_logging_length."
+  }
+}
+
+run "plan_additional_domains_query_logging_enabled" {
+  command = plan
+
+  variables {
+    enable_r53_query_logging = true
+    additional_domain_names = [
+      "extra1.example.gov.uk",
+      "extra2.example.gov.uk",
+    ]
+  }
+
+  # One log group + query log per additional domain when enabled.
+  assert {
+    condition     = length(aws_cloudwatch_log_group.additional_r53_log_groups) == 2
+    error_message = "One additional log group should be created per additional domain."
+  }
+
+  assert {
+    condition     = length(aws_route53_query_log.additional_r53_query_logs) == 2
+    error_message = "One additional query log should be created per additional domain."
+  }
+}
+
+run "plan_additional_domains_query_logging_disabled" {
+  command = plan
+
+  variables {
+    enable_r53_query_logging = false
+    additional_domain_names = [
+      "extra1.example.gov.uk",
+    ]
+  }
+
+  # Additional zone still created, but no query-logging resources when disabled.
+  assert {
+    condition     = length(aws_route53_zone.additional_workload_zones) == 1
+    error_message = "Additional workload zone should still be created when query logging is disabled."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_group.additional_r53_log_groups) == 0
+    error_message = "No additional log groups should exist when query logging is disabled."
+  }
+
+  assert {
+    condition     = length(aws_route53_query_log.additional_r53_query_logs) == 0
+    error_message = "No additional query logs should exist when query logging is disabled."
+  }
+}

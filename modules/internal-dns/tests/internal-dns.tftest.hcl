@@ -315,3 +315,118 @@ run "plan_internal_dns_additional_domains_dnssec_disabled" {
     error_message = "No additional hosted-zone DNSSEC resources should exist when DNSSEC is disabled."
   }
 }
+
+run "plan_internal_dns_query_logging_disabled_by_default" {
+  command = plan
+
+  override_data {
+    target = data.aws_vpcs.selected
+    values = {
+      ids = ["vpc-1234567890abcdef0"]
+    }
+  }
+
+  # Query logging defaults to off: no log groups or query-log resources.
+  assert {
+    condition     = length(aws_cloudwatch_log_group.r53_log_group) == 0
+    error_message = "No public-zone log group should be created when query logging is disabled (default)."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_group.r53_log_group_phz) == 0
+    error_message = "No private-zone log group should be created when query logging is disabled (default)."
+  }
+
+  assert {
+    condition     = length(aws_route53_query_log.r53_query_log) == 0
+    error_message = "No public-zone query log should be created when query logging is disabled."
+  }
+
+  assert {
+    condition     = length(aws_route53_query_log.r53_query_log_phz) == 0
+    error_message = "No private-zone query log should be created when query logging is disabled."
+  }
+}
+
+run "plan_internal_dns_query_logging_enabled" {
+  command = plan
+
+  variables {
+    enable_r53_query_logging        = true
+    enable_r53_query_logging_length = 90
+  }
+
+  override_data {
+    target = data.aws_vpcs.selected
+    values = {
+      ids = ["vpc-1234567890abcdef0"]
+    }
+  }
+
+  # A log group + query log is created for BOTH the public and private zone.
+  assert {
+    condition     = length(aws_cloudwatch_log_group.r53_log_group) == 1
+    error_message = "A public-zone log group should be created when query logging is enabled."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_group.r53_log_group_phz) == 1
+    error_message = "A private-zone log group should be created when query logging is enabled."
+  }
+
+  assert {
+    condition     = length(aws_route53_query_log.r53_query_log) == 1
+    error_message = "A public-zone query log should be created when query logging is enabled."
+  }
+
+  assert {
+    condition     = length(aws_route53_query_log.r53_query_log_phz) == 1
+    error_message = "A private-zone query log should be created when query logging is enabled."
+  }
+
+  # Retention days should flow from the configured variable.
+  assert {
+    condition     = aws_cloudwatch_log_group.r53_log_group[0].retention_in_days == 90
+    error_message = "Log group retention should use the configured enable_r53_query_logging_length."
+  }
+}
+
+run "plan_internal_dns_additional_domains_query_logging_enabled" {
+  command = plan
+
+  variables {
+    enable_r53_query_logging = true
+    additional_internal_domain_names = [
+      "extra1.np.internal.example.gov.uk",
+      "extra2.np.internal.example.gov.uk",
+    ]
+  }
+
+  override_data {
+    target = data.aws_vpcs.selected
+    values = {
+      ids = ["vpc-1234567890abcdef0"]
+    }
+  }
+
+  # One public + one private log group and query log per additional domain.
+  assert {
+    condition     = length(aws_cloudwatch_log_group.additional_r53_log_groups) == 2
+    error_message = "One additional public-zone log group should be created per additional domain."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_group.additional_r53_log_groups_phz) == 2
+    error_message = "One additional private-zone log group should be created per additional domain."
+  }
+
+  assert {
+    condition     = length(aws_route53_query_log.additional_r53_query_logs) == 2
+    error_message = "One additional public-zone query log should be created per additional domain."
+  }
+
+  assert {
+    condition     = length(aws_route53_query_log.additional_r53_query_logs_phz) == 2
+    error_message = "One additional private-zone query log should be created per additional domain."
+  }
+}

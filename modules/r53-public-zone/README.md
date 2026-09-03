@@ -19,12 +19,16 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
+| [aws_cloudwatch_log_group.additional_r53_log_groups](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
+| [aws_cloudwatch_log_group.r53_log_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_kms_key.additional_dnssec_keys](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
 | [aws_kms_key.dnssec_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
 | [aws_route53_hosted_zone_dnssec.additional_dnssec](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_hosted_zone_dnssec) | resource |
 | [aws_route53_hosted_zone_dnssec.dnssec](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_hosted_zone_dnssec) | resource |
 | [aws_route53_key_signing_key.additional_ksks](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_key_signing_key) | resource |
 | [aws_route53_key_signing_key.ksk](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_key_signing_key) | resource |
+| [aws_route53_query_log.additional_r53_query_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_query_log) | resource |
+| [aws_route53_query_log.r53_query_log](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_query_log) | resource |
 | [aws_route53_zone.additional_workload_zones](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_zone) | resource |
 | [aws_route53_zone.workload_zone](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_zone) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
@@ -36,6 +40,8 @@ No modules.
 | <a name="input_additional_domain_names"></a> [additional\_domain\_names](#input\_additional\_domain\_names) | A list of additional Route 53 hosted zones | `list(string)` | `[]` | no |
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | The domain name for the Route 53 hosted zone | `string` | n/a | yes |
 | <a name="input_enable_dnssec"></a> [enable\_dnssec](#input\_enable\_dnssec) | Enable Route53 DNSSEC signing | `bool` | `false` | no |
+| <a name="input_enable_r53_query_logging"></a> [enable\_r53\_query\_logging](#input\_enable\_r53\_query\_logging) | Enable Route53 Query Logging | `bool` | `false` | no |
+| <a name="input_enable_r53_query_logging_length"></a> [enable\_r53\_query\_logging\_length](#input\_enable\_r53\_query\_logging\_length) | Length in days to store route53 query logs | `number` | `30` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | The environment in which the hosted zone is deployed | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to be applied to the hosted zone | `map(string)` | `{}` | no |
 

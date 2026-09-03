@@ -118,6 +118,32 @@ resource "aws_route53profiles_resource_association" "phz_to_profile" {
   resource_arn = aws_route53_zone.private.arn
 }
 
+#Query Logging Option
+resource "aws_cloudwatch_log_group" "r53_log_group" {
+  count             = var.enable_r53_query_logging ? 1 : 0
+  name              = "/aws/route53/${local.domain}"
+  retention_in_days = var.enable_r53_query_logging_length
+}
+
+resource "aws_cloudwatch_log_group" "r53_log_group_phz" {
+  count             = var.enable_r53_query_logging ? 1 : 0
+  name              = "/aws/route53/phz_${local.domain}"
+  retention_in_days = var.enable_r53_query_logging_length
+}
+
+resource "aws_route53_query_log" "r53_query_log" {
+  count                    = var.enable_r53_query_logging ? 1 : 0
+  cloudwatch_log_group_arn = aws_cloudwatch_log_group.r53_log_group[0].arn
+  zone_id                  = aws_route53_zone.public.zone_id
+}
+
+resource "aws_route53_query_log" "r53_query_log_phz" {
+  count                    = var.enable_r53_query_logging ? 1 : 0
+  cloudwatch_log_group_arn = aws_cloudwatch_log_group.r53_log_group_phz[0].arn
+  zone_id                  = aws_route53_zone.private.zone_id
+}
+
+
 ############################
 # Route 53 Additional Hosted Zones
 ############################
@@ -204,4 +230,29 @@ resource "aws_route53profiles_resource_association" "additional_phz_to_profile" 
   name         = "phz-${random_id.additional_phz_assoc[each.key].hex}"
   profile_id   = var.route53_profile_id
   resource_arn = aws_route53_zone.additional_private[each.key].arn
+}
+
+#Query Logging Option for Additional Domains
+resource "aws_cloudwatch_log_group" "additional_r53_log_groups" {
+  for_each          = var.enable_r53_query_logging ? try(toset(var.additional_internal_domain_names), toset([])) : toset([])
+  name              = "/aws/route53/${each.key}"
+  retention_in_days = var.enable_r53_query_logging_length
+}
+
+resource "aws_cloudwatch_log_group" "additional_r53_log_groups_phz" {
+  for_each          = var.enable_r53_query_logging ? try(toset(var.additional_internal_domain_names), toset([])) : toset([])
+  name              = "/aws/route53/phz_${each.key}"
+  retention_in_days = var.enable_r53_query_logging_length
+}
+
+resource "aws_route53_query_log" "additional_r53_query_logs" {
+  for_each                 = var.enable_r53_query_logging ? try(toset(var.additional_internal_domain_names), toset([])) : toset([])
+  cloudwatch_log_group_arn = aws_cloudwatch_log_group.additional_r53_log_groups[each.key].arn
+  zone_id                  = aws_route53_zone.additional_public[each.key].zone_id
+}
+
+resource "aws_route53_query_log" "additional_r53_query_logs_phz" {
+  for_each                 = var.enable_r53_query_logging ? try(toset(var.additional_internal_domain_names), toset([])) : toset([])
+  cloudwatch_log_group_arn = aws_cloudwatch_log_group.additional_r53_log_groups_phz[each.key].arn
+  zone_id                  = aws_route53_zone.additional_private[each.key].zone_id
 }

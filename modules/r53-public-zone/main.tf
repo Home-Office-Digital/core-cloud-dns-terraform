@@ -57,6 +57,19 @@ resource "aws_route53_hosted_zone_dnssec" "dnssec" {
   hosted_zone_id = aws_route53_zone.workload_zone.zone_id
 }
 
+#Query Logging Option
+resource "aws_cloudwatch_log_group" "r53_log_group" {
+  count             = var.enable_r53_query_logging ? 1 : 0
+  name              = "/aws/route53/${var.domain_name}"
+  retention_in_days = var.enable_r53_query_logging_length
+}
+
+resource "aws_route53_query_log" "r53_query_log" {
+  count                    = var.enable_r53_query_logging ? 1 : 0
+  cloudwatch_log_group_arn = aws_cloudwatch_log_group.r53_log_group[0].arn
+  zone_id                  = aws_route53_zone.workload_zone.zone_id
+}
+
 #### Additional Domain Names
 resource "aws_route53_zone" "additional_workload_zones" {
   for_each = try(toset(var.additional_domain_names), {})
@@ -115,4 +128,17 @@ resource "aws_route53_key_signing_key" "additional_ksks" {
 resource "aws_route53_hosted_zone_dnssec" "additional_dnssec" {
   for_each       = var.enable_dnssec ? try(toset(var.additional_domain_names), toset([])) : toset([])
   hosted_zone_id = aws_route53_zone.additional_workload_zones[each.key].zone_id
+}
+
+#Query Logging Option for Additional Domains
+resource "aws_cloudwatch_log_group" "additional_r53_log_groups" {
+  for_each          = var.enable_r53_query_logging ? try(toset(var.additional_domain_names), toset([])) : toset([])
+  name              = "/aws/route53/${each.key}"
+  retention_in_days = var.enable_r53_query_logging_length
+}
+
+resource "aws_route53_query_log" "additional_r53_query_logs" {
+  for_each                 = var.enable_r53_query_logging ? try(toset(var.additional_domain_names), toset([])) : toset([])
+  cloudwatch_log_group_arn = aws_cloudwatch_log_group.additional_r53_log_groups[each.key].arn
+  zone_id                  = aws_route53_zone.additional_workload_zones[each.key].zone_id
 }

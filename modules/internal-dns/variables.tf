@@ -26,6 +26,19 @@ variable "enable_dnssec" {
   description = "Enable Route53 DNSSEC signing"
 }
 
+variable "enable_r53_query_logging" {
+  type        = bool
+  default     = false
+  description = "Enable Route53 Query Logging"
+}
+
+variable "enable_r53_query_logging_length" {
+  type        = number
+  default     = 30
+  description = "Length in days to store route53 query logs"
+}
+
+
 variable "tags" {
   description = "Tags to apply to created resources."
   type        = map(string)
