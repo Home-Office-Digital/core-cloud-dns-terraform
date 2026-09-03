@@ -69,3 +69,44 @@ resource "aws_route53profiles_resource_association" "phz_to_profile" {
   profile_id   = var.route53_profile_id
   resource_arn = aws_route53_zone.private.arn
 }
+
+############################
+# Route 53 Additional Hosted Zones
+############################
+
+# Private Hosted Zone (PHZ) - created and associated to the selected VPC
+resource "aws_route53_zone" "additional_private" {
+  for_each = try(toset(var.additional_internal_domain_names), {})
+  name     = each.key
+
+  vpc {
+    vpc_id = local.vpc_id
+  }
+
+  comment = "Private hosted zone for ${each.key} (managed by Terraform)"
+  tags    = var.tags
+}
+
+# Public Hosted Zone (for ACM DNS validation records)
+resource "aws_route53_zone" "additional_public" {
+  for_each = try(toset(var.additional_internal_domain_names), {})
+  name     = each.key
+  comment  = "Public hosted zone for ${each.key} (ACM validation records"
+  tags     = var.tags
+}
+
+############################
+# Route 53 Profiles - additional domains
+############################
+resource "random_id" "additional_phz_assoc" {
+  for_each    = try(toset(var.additional_internal_domain_names), {})
+  byte_length = 4
+}
+
+# Attach PHZ to Route 53 Profile
+resource "aws_route53profiles_resource_association" "additional_phz_to_profile" {
+  for_each     = try(toset(var.additional_internal_domain_names), {})
+  name         = "phz-${random_id.additional_phz_assoc[each.key].hex}"
+  profile_id   = var.route53_profile_id
+  resource_arn = aws_route53_zone.additional_private[each.key].arn
+}

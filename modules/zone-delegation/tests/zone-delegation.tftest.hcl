@@ -1,7 +1,7 @@
 mock_provider "aws" {}
 
 variables {
-  zone_id = "Z0123456789ABCDEF0"
+  zone_id     = "Z0123456789ABCDEF0"
   domain_name = "service.example.gov.uk"
   workload_public_zone_ns_records = [
     "ns-111.awsdns-11.org.",
@@ -65,5 +65,78 @@ run "plan_zone_delegation_with_module_default_ns_records" {
   assert {
     condition     = aws_route53_record.ns_record.type == "NS"
     error_message = "Record type should stay NS in default-style nameserver scenario."
+  }
+}
+
+run "plan_additional_domain_delegations" {
+  command = plan
+
+  variables {
+    # Map of additional child domain => that domain's OWN name servers,
+    # mirroring the r53-public-zone module's additional_name_servers output.
+    additional_name_servers = {
+      "extra1.example.gov.uk" = [
+        "ns-11.awsdns-11.org.",
+        "ns-12.awsdns-12.net.",
+      ]
+      "extra2.example.gov.uk" = [
+        "ns-21.awsdns-21.org.",
+        "ns-22.awsdns-22.net.",
+        "ns-23.awsdns-23.co.uk.",
+      ]
+    }
+  }
+
+  # One NS delegation record per additional domain, keyed by domain.
+  assert {
+    condition     = length(aws_route53_record.additional_ns_records) == 2
+    error_message = "One additional NS delegation record should be created per additional domain."
+  }
+
+  assert {
+    condition     = aws_route53_record.additional_ns_records["extra1.example.gov.uk"].name == "extra1.example.gov.uk"
+    error_message = "Additional delegation record name should match the additional domain."
+  }
+
+  assert {
+    condition     = aws_route53_record.additional_ns_records["extra1.example.gov.uk"].type == "NS"
+    error_message = "Additional delegation record type must be NS."
+  }
+
+  assert {
+    condition     = aws_route53_record.additional_ns_records["extra2.example.gov.uk"].ttl == 300
+    error_message = "Additional delegation record TTL should remain 300 seconds."
+  }
+
+  # Each additional delegation is created in the SAME parent zone as the primary.
+  assert {
+    condition     = aws_route53_record.additional_ns_records["extra1.example.gov.uk"].zone_id == var.zone_id
+    error_message = "Additional delegation record should be created in the shared parent zone."
+  }
+
+  # Each additional record uses its OWN name servers, not the primary's set.
+  assert {
+    condition     = toset(aws_route53_record.additional_ns_records["extra1.example.gov.uk"].records) == toset(var.additional_name_servers["extra1.example.gov.uk"])
+    error_message = "Additional delegation record should use that domain's own NS records."
+  }
+
+  assert {
+    condition     = length(aws_route53_record.additional_ns_records["extra2.example.gov.uk"].records) == 3
+    error_message = "Second additional domain should carry its own three NS records, independent of the first."
+  }
+
+  # The primary delegation record is unaffected by the additional-domains path.
+  assert {
+    condition     = aws_route53_record.ns_record.name == var.domain_name
+    error_message = "Primary delegation record should still target the primary domain."
+  }
+}
+
+run "plan_no_additional_delegations_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(aws_route53_record.additional_ns_records) == 0
+    error_message = "No additional delegation records should be created when the list is empty (default)."
   }
 }

@@ -5,11 +5,17 @@ variable "internal_domain_name" {
 }
 
 variable "internal_zone_id" {
-  type        = string
+  type = string
 }
 
 variable "tags" {
   description = "Tags to apply to created resources."
+  type        = map(string)
+  default     = {}
+}
+
+variable "additional_internal_zone_ids" {
+  description = "A map of corresponding zone IDs with domain as the key"
   type        = map(string)
   default     = {}
 }
