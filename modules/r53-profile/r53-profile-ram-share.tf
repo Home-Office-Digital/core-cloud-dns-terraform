@@ -1,7 +1,7 @@
 resource "aws_ram_resource_share" "cc_r53_profile_share" {
   name                      = "Network-Account-R53-Shared-Profile"
   allow_external_principals = false
-  permission_arns = var. r53_ram_share_permission_arns
+  permission_arns           = var.r53_ram_share_permission_arns
 }
 
 # Share with AWS Organization

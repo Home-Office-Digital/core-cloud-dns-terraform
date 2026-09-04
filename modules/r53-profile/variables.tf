@@ -193,5 +193,5 @@ variable "availability_zones" {
 }
 
 variable "r53_ram_share_permission_arns" {
-  type        = list(string)
+  type = list(string)
 }

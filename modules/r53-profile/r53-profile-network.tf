@@ -100,6 +100,7 @@ resource "aws_subnet" "cc_ncsc_outbound_endpoint_subnet" {
 resource "aws_subnet" "cc_ncsc_natgw_subnet" {
   for_each = local.natg_map
 
+  #checkov:skip=CKV_AWS_130:Public IP required for ncsc NATGW
   vpc_id                  = var.vpc_id
   cidr_block              = each.value.cidr
   availability_zone       = each.value.az
@@ -159,11 +160,11 @@ resource "aws_route_table_association" "ncsc_nat_rt_assoc" {
 # ----------------------------------------------------------
 resource "aws_route_table" "cc_poise_outbound_endpoint_rt" {
   for_each = aws_subnet.cc_poise_outbound_endpoint_subnet
-  vpc_id = var.vpc_id
+  vpc_id   = var.vpc_id
 
   # Prod CIDRs via Prod TGW
   dynamic "route" {
-    for_each = toset(var.prod_cidrs) 
+    for_each = toset(var.prod_cidrs)
     content {
       cidr_block         = route.value
       transit_gateway_id = var.prod_transit_gateway_id
@@ -209,7 +210,7 @@ resource "aws_route_table" "cc_ncsc_outbound_endpoint_rt" {
 
 resource "aws_route_table" "cc_inbound_resolver_rt" {
   for_each = aws_subnet.cc_inbound_endpoint_subnet
-  vpc_id = var.vpc_id
+  vpc_id   = var.vpc_id
 
   # Prod CIDRs via Prod TGW
   dynamic "route" {

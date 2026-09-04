@@ -3,7 +3,7 @@
 ##############################
 
 resource "aws_security_group" "cc_poise_resolver_sg" {
-  name        = "cc-poise-resolver-sg"
+  name = "cc-poise-resolver-sg"
 
   # MUST stay EXACTLY the same or AWS forces replacement
   description = "Security Group for Poise outbound resolver DNS traffic"
