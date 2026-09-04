@@ -205,8 +205,8 @@ run "plan_query_logging_enabled" {
   command = plan
 
   variables {
-    enable_r53_query_logging        = true
-    enable_r53_query_logging_length = 90
+    enable_r53_query_logging = true
+    r53_query_logging_length = 90
   }
 
   assert {
@@ -221,7 +221,7 @@ run "plan_query_logging_enabled" {
 
   assert {
     condition     = aws_cloudwatch_log_group.r53_log_group[0].retention_in_days == 90
-    error_message = "Log group retention should use the configured enable_r53_query_logging_length."
+    error_message = "Log group retention should use the configured r53_query_logging_length."
   }
 }
 

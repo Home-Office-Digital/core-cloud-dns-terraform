@@ -43,8 +43,8 @@ No modules.
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | The domain name for the Route 53 hosted zone | `string` | n/a | yes |
 | <a name="input_enable_dnssec"></a> [enable\_dnssec](#input\_enable\_dnssec) | Enable Route53 DNSSEC signing | `bool` | `false` | no |
 | <a name="input_enable_r53_query_logging"></a> [enable\_r53\_query\_logging](#input\_enable\_r53\_query\_logging) | Enable Route53 Query Logging | `bool` | `false` | no |
-| <a name="input_enable_r53_query_logging_length"></a> [enable\_r53\_query\_logging\_length](#input\_enable\_r53\_query\_logging\_length) | Length in days to store route53 query logs | `number` | `365` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | The environment in which the hosted zone is deployed | `string` | n/a | yes |
+| <a name="input_r53_query_logging_length"></a> [r53\_query\_logging\_length](#input\_r53\_query\_logging\_length) | Length in days to store route53 query logs. Must be a value supported by CloudWatch Logs retention. | `number` | `365` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to be applied to the hosted zone | `map(string)` | `{}` | no |
 
 ## Outputs

@@ -14,7 +14,7 @@ No requirements.
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.62.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.63.0 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.9.0 |
 
 ## Modules
@@ -60,8 +60,8 @@ No modules.
 | <a name="input_additional_internal_domain_names"></a> [additional\_internal\_domain\_names](#input\_additional\_internal\_domain\_names) | Additional domain names used to create BOTH private and public hosted zones (e.g. np.internal.core.homeoffice.gov.uk). | `list(string)` | `[]` | no |
 | <a name="input_enable_dnssec"></a> [enable\_dnssec](#input\_enable\_dnssec) | Enable Route53 DNSSEC signing | `bool` | `false` | no |
 | <a name="input_enable_r53_query_logging"></a> [enable\_r53\_query\_logging](#input\_enable\_r53\_query\_logging) | Enable Route53 Query Logging | `bool` | `false` | no |
-| <a name="input_enable_r53_query_logging_length"></a> [enable\_r53\_query\_logging\_length](#input\_enable\_r53\_query\_logging\_length) | Length in days to store route53 query logs | `number` | `30` | no |
 | <a name="input_internal_domain_name"></a> [internal\_domain\_name](#input\_internal\_domain\_name) | Single domain name used to create BOTH private and public hosted zones (e.g. np.internal.core.homeoffice.gov.uk). | `string` | n/a | yes |
+| <a name="input_r53_query_logging_length"></a> [r53\_query\_logging\_length](#input\_r53\_query\_logging\_length) | Length in days to store route53 query logs. Must be a value supported by CloudWatch Logs retention. | `number` | `365` | no |
 | <a name="input_route53_profile_id"></a> [route53\_profile\_id](#input\_route53\_profile\_id) | Route 53 Profile ID to associate the VPC and PHZ with. Pass via GitHub env var TF\_VAR\_route53\_profile\_id. | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to created resources. | `map(string)` | `{}` | no |
 | <a name="input_vpc_name"></a> [vpc\_name](#input\_vpc\_name) | Value of the VPC 'Name' tag used to look up the VPC ID. | `string` | n/a | yes |
