@@ -169,16 +169,16 @@ resource "aws_kms_key" "r53_query_log_key" {
 resource "aws_cloudwatch_log_group" "r53_log_group" {
   count             = var.enable_r53_query_logging ? 1 : 0
   name              = "/aws/route53/${local.domain}"
-  #checkov:skip=CKV_AWS_338:Route53 Query Log retention length is set by variable, default 365 days
-  retention_in_days = var.enable_r53_query_logging_length
+  
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.r53_query_log_key[0].arn
 }
 
 resource "aws_cloudwatch_log_group" "r53_log_group_phz" {
   count             = var.enable_r53_query_logging ? 1 : 0
   name              = "/aws/route53/phz_${local.domain}"
-  #checkov:skip=CKV_AWS_338:Route53 Query Log retention length is set by variable, default 365 days
-  retention_in_days = var.enable_r53_query_logging_length
+  
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.r53_query_log_key[0].arn
 }
 
@@ -287,16 +287,16 @@ resource "aws_route53profiles_resource_association" "additional_phz_to_profile" 
 resource "aws_cloudwatch_log_group" "additional_r53_log_groups" {
   for_each          = var.enable_r53_query_logging ? try(toset(var.additional_internal_domain_names), toset([])) : toset([])
   name              = "/aws/route53/${each.key}"
-  #checkov:skip=CKV_AWS_338:Route53 Query Log retention length is set by variable, default 365 days
-  retention_in_days = var.enable_r53_query_logging_length
+  
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.r53_query_log_key[0].arn
 }
 
 resource "aws_cloudwatch_log_group" "additional_r53_log_groups_phz" {
   for_each          = var.enable_r53_query_logging ? try(toset(var.additional_internal_domain_names), toset([])) : toset([])
   name              = "/aws/route53/phz_${each.key}"
-  #checkov:skip=CKV_AWS_338:Route53 Query Log retention length is set by variable, default 365 days
-  retention_in_days = var.enable_r53_query_logging_length
+  
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.r53_query_log_key[0].arn
 }
 
