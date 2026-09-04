@@ -108,8 +108,8 @@ resource "aws_kms_key" "r53_query_log_key" {
 resource "aws_cloudwatch_log_group" "r53_log_group" {
   count             = var.enable_r53_query_logging ? 1 : 0
   name              = "/aws/route53/${var.domain_name}"
-  
-  retention_in_days = 365
+  #checkov:skip=CKV_AWS_338:Route53 Query Log retention length is set by variable, default 365 days
+  retention_in_days = var.enable_r53_query_logging_length
   kms_key_id        = aws_kms_key.r53_query_log_key[0].arn
 }
 
@@ -183,8 +183,8 @@ resource "aws_route53_hosted_zone_dnssec" "additional_dnssec" {
 resource "aws_cloudwatch_log_group" "additional_r53_log_groups" {
   for_each          = var.enable_r53_query_logging ? try(toset(var.additional_domain_names), toset([])) : toset([])
   name              = "/aws/route53/${each.key}"
-  
-  retention_in_days = 365
+  #checkov:skip=CKV_AWS_338:Route53 Query Log retention length is set by variable, default 365 days
+  retention_in_days = var.enable_r53_query_logging_length
   kms_key_id        = aws_kms_key.r53_query_log_key[0].arn
 }
 
