@@ -100,6 +100,7 @@ resource "aws_subnet" "cc_ncsc_outbound_endpoint_subnet" {
 resource "aws_subnet" "cc_ncsc_natgw_subnet" {
   for_each = local.natg_map
 
+  #checkov:skip=CKV_AWS_130:Public IP required for ncsc NATGW
   vpc_id                  = var.vpc_id
   cidr_block              = each.value.cidr
   availability_zone       = each.value.az
