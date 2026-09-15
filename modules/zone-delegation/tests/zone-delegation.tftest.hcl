@@ -140,3 +140,49 @@ run "plan_no_additional_delegations_by_default" {
     error_message = "No additional delegation records should be created when the list is empty (default)."
   }
 }
+
+run "plan_additional_domain_delegations_with_per_domain_zone_override" {
+  command = plan
+
+  variables {
+    additional_name_servers = {
+      "extra1.example.gov.uk" = [
+        "ns-11.awsdns-11.org.",
+        "ns-12.awsdns-12.net.",
+      ]
+      "extra2.other.gov.uk" = [
+        "ns-21.awsdns-21.org.",
+        "ns-22.awsdns-22.net.",
+      ]
+    }
+    # extra1 delegates into a distinct parent zone; extra2 has no override and
+    # must fall back to the primary parent zone (var.zone_id).
+    additional_zone_ids = {
+      "extra1.example.gov.uk" = "Z0OVERRIDE1111111"
+    }
+  }
+
+  # Domain WITH an override uses its own parent zone.
+  assert {
+    condition     = aws_route53_record.additional_ns_records["extra1.example.gov.uk"].zone_id == "Z0OVERRIDE1111111"
+    error_message = "Additional delegation with an override should use its per-domain parent zone."
+  }
+
+  # Domain WITHOUT an override falls back to the primary parent zone.
+  assert {
+    condition     = aws_route53_record.additional_ns_records["extra2.other.gov.uk"].zone_id == var.zone_id
+    error_message = "Additional delegation without an override should fall back to the primary parent zone."
+  }
+
+  # Records/names still come from each domain's own NS set.
+  assert {
+    condition     = toset(aws_route53_record.additional_ns_records["extra1.example.gov.uk"].records) == toset(var.additional_name_servers["extra1.example.gov.uk"])
+    error_message = "Override must not affect which NS records are used for the domain."
+  }
+
+  # Primary delegation record remains in var.zone_id and unaffected.
+  assert {
+    condition     = aws_route53_record.ns_record.zone_id == var.zone_id
+    error_message = "Primary delegation record should remain in the primary parent zone."
+  }
+}
