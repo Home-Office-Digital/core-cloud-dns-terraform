@@ -24,3 +24,9 @@ variable "additional_name_servers" {
   type        = map(list(string))
   default     = {}
 }
+
+variable "additional_zone_ids" {
+  description = "Optional map of additional child domain name => the parent hosted zone ID its NS delegation record should be created in. When a domain is absent from this map, its delegation falls back to var.zone_id (the primary parent zone)."
+  type        = map(string)
+  default     = {}
+}

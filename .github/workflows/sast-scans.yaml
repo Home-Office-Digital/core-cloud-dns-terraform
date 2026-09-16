@@ -23,12 +23,12 @@ permissions:
 jobs:
   checkov-scan:
     name: Run Checkov Scan
-    uses: Home-Office-Digital/core-cloud-workflow-checkov-sast-scan/.github/workflows/checkov-scan-tfplan.yaml@1.7.1
+    uses: Home-Office-Digital/core-cloud-workflow-checkov-sast-scan/.github/workflows/checkov-scan-tfplan.yaml@121fa86c79521d82b4f92237493584f44d6d8143 #1.21.0
     with:
       path: '.'
   sonarqube-scan:
     name: Run SonarQube Scan
-    uses: Home-Office-Digital/core-cloud-workflow-sonarqube-scan/.github/workflows/sonarqube-scan.yaml@1.1.4
+    uses: Home-Office-Digital/core-cloud-workflow-sonarqube-scan/.github/workflows/sonarqube-scan.yaml@3f9613d4c02f2f84fb4982982c1b9cf8bf773579 #1.2.0
     secrets:
       sonar_token: ${{ secrets.sonar_token }}
       sonar_host_url: ${{ secrets.sonar_host_url }}
