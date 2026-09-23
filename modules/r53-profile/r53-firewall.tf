@@ -56,6 +56,35 @@ resource "aws_route53_resolver_firewall_rule" "aws_managed_rules" {
   block_response          = "NODATA"
 }
 
+# DNS Firewall Advanced — behavioural detection of DNS tunnelling / DGA.
+#
+# Unlike the domain-list rules above (feed/reputation based, which only catch
+# KNOWN-bad domains), Advanced rules inspect DNS query behaviour (entropy,
+# length, rate, timing) in real time and can flag PREVIOUSLY UNKNOWN domains —
+# the uncategorised-attacker-domain exfiltration vector that NCSC PDNS does not
+# behaviourally detect. See core-cloud-dns-terragrunt#122.
+#
+# Requires AWS provider >= 6.28.0 (dns_threat_protection / confidence_threshold).
+# Advanced rules support only BLOCK or ALERT (no ALLOW). Default to ALERT so we
+# observe + tune before ever blocking on a resolver that fronts the whole estate.
+#
+# One rule per enabled detector; priorities come lowest-first so Advanced
+# evaluates ahead of the managed (200+) and custom (300) domain-list rules.
+resource "aws_route53_resolver_firewall_rule" "advanced_threat" {
+  for_each = { for d in var.dns_firewall_advanced_detectors : d.threat => d }
+
+  name                   = "cc-adv-${lower(each.value.threat)}"
+  action                 = var.dns_firewall_advanced_action
+  firewall_rule_group_id = aws_route53_resolver_firewall_rule_group.rule_group.id
+  priority               = each.value.priority
+
+  dns_threat_protection = each.value.threat
+  confidence_threshold  = var.dns_firewall_advanced_confidence_threshold
+
+  # NODATA only applies when blocking; harmless/ignored for ALERT.
+  block_response = var.dns_firewall_advanced_action == "BLOCK" ? "NODATA" : null
+}
+
 # rule-group association
 resource "aws_route53_resolver_firewall_rule_group_association" "assoc" {
   name                   = "${var.rule_group_name}-assoc"

@@ -128,6 +128,56 @@ variable "rulegroup_association_priority" {
   default     = 100
 }
 
+# DNS Firewall Advanced (behavioural DNS tunnelling / DGA detection).
+# Requires AWS provider >= 6.28.0.
+variable "dns_firewall_advanced_detectors" {
+  description = <<-EOT
+    DNS Firewall Advanced threat detectors to create, each as an object with:
+      threat   - one of "DNS_TUNNELING", "DGA", "DICTIONARY_DGA"
+      priority - rule priority (lowest evaluated first; keep below the managed
+                 (200+) and custom (300) domain-list rule priorities)
+    Set to [] to disable Advanced rules entirely.
+  EOT
+  type = list(object({
+    threat   = string
+    priority = number
+  }))
+  default = [
+    { threat = "DNS_TUNNELING", priority = 50 },
+    { threat = "DGA", priority = 60 },
+  ]
+
+  validation {
+    condition = alltrue([
+      for d in var.dns_firewall_advanced_detectors :
+      contains(["DNS_TUNNELING", "DGA", "DICTIONARY_DGA"], d.threat)
+    ])
+    error_message = "Each threat must be one of DNS_TUNNELING, DGA, or DICTIONARY_DGA."
+  }
+}
+
+variable "dns_firewall_advanced_action" {
+  description = "Action for DNS Firewall Advanced rules. ALERT (monitor) or BLOCK. Start with ALERT and switch to BLOCK only after tuning."
+  type        = string
+  default     = "ALERT"
+
+  validation {
+    condition     = contains(["ALERT", "BLOCK"], var.dns_firewall_advanced_action)
+    error_message = "dns_firewall_advanced_action must be ALERT or BLOCK (ALLOW is not supported for Advanced rules)."
+  }
+}
+
+variable "dns_firewall_advanced_confidence_threshold" {
+  description = "Confidence threshold for DNS Firewall Advanced detection: LOW, MEDIUM, or HIGH."
+  type        = string
+  default     = "MEDIUM"
+
+  validation {
+    condition     = contains(["LOW", "MEDIUM", "HIGH"], var.dns_firewall_advanced_confidence_threshold)
+    error_message = "dns_firewall_advanced_confidence_threshold must be LOW, MEDIUM, or HIGH."
+  }
+}
+
 
 ######
 # Routing
