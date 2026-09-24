@@ -212,6 +212,18 @@ variable "dns_firewall_alarm_sns_topic_arn" {
   default     = ""
 }
 
+variable "enable_dns_dashboard" {
+  description = "Create a CloudWatch dashboard for the central DNS hub (firewall match volume, endpoint query volume/health, top actioned domains)."
+  type        = bool
+  default     = true
+}
+
+variable "aws_region" {
+  description = "AWS region, used for CloudWatch dashboard widget metric/log queries."
+  type        = string
+  default     = "eu-west-2"
+}
+
 
 ######
 # Routing
