@@ -128,6 +128,102 @@ variable "rulegroup_association_priority" {
   default     = 100
 }
 
+# DNS Firewall Advanced (behavioural DNS tunnelling / DGA detection).
+# Requires AWS provider >= 6.28.0.
+variable "dns_firewall_advanced_detectors" {
+  description = <<-EOT
+    DNS Firewall Advanced threat detectors to create, each as an object with:
+      threat   - one of "DNS_TUNNELING", "DGA", "DICTIONARY_DGA"
+      priority - rule priority (lowest evaluated first; keep below the managed
+                 (200+) and custom (300) domain-list rule priorities)
+    Set to [] to disable Advanced rules entirely.
+  EOT
+  type = list(object({
+    threat   = string
+    priority = number
+  }))
+  default = [
+    { threat = "DNS_TUNNELING", priority = 50 },
+    { threat = "DGA", priority = 60 },
+  ]
+
+  validation {
+    condition = alltrue([
+      for d in var.dns_firewall_advanced_detectors :
+      contains(["DNS_TUNNELING", "DGA", "DICTIONARY_DGA"], d.threat)
+    ])
+    error_message = "Each threat must be one of DNS_TUNNELING, DGA, or DICTIONARY_DGA."
+  }
+}
+
+variable "dns_firewall_advanced_action" {
+  description = "Action for DNS Firewall Advanced rules. ALERT (monitor) or BLOCK. Start with ALERT and switch to BLOCK only after tuning."
+  type        = string
+  default     = "ALERT"
+
+  validation {
+    condition     = contains(["ALERT", "BLOCK"], var.dns_firewall_advanced_action)
+    error_message = "dns_firewall_advanced_action must be ALERT or BLOCK (ALLOW is not supported for Advanced rules)."
+  }
+}
+
+variable "dns_firewall_advanced_confidence_threshold" {
+  description = "Confidence threshold for DNS Firewall Advanced detection: LOW, MEDIUM, or HIGH."
+  type        = string
+  default     = "MEDIUM"
+
+  validation {
+    condition     = contains(["LOW", "MEDIUM", "HIGH"], var.dns_firewall_advanced_confidence_threshold)
+    error_message = "dns_firewall_advanced_confidence_threshold must be LOW, MEDIUM, or HIGH."
+  }
+}
+
+######################
+## Observability
+######################
+
+variable "enable_resolver_query_logging" {
+  description = "Create a Route 53 Resolver query log config -> CloudWatch and associate it with the VPC. Needed to see DNS Firewall Advanced ALERT-mode matches for tuning."
+  type        = bool
+  default     = true
+}
+
+variable "resolver_query_log_retention_days" {
+  description = "CloudWatch Logs retention (days) for the Resolver query log group. Default 365 to satisfy CKV_AWS_338 (>= 1 year)."
+  type        = number
+  default     = 365
+}
+
+variable "enable_dns_firewall_alarms" {
+  description = "Create CloudWatch alarms on DNS Firewall Advanced rule matches (one per detector)."
+  type        = bool
+  default     = true
+}
+
+variable "dns_firewall_alarm_threshold" {
+  description = "Threshold (matched query count per 5-minute period) above which the Advanced-rule alarm fires."
+  type        = number
+  default     = 1
+}
+
+variable "dns_firewall_alarm_sns_topic_arn" {
+  description = "Optional SNS topic ARN for alarm/ok actions. Empty string = no notification action (alarm still visible in CloudWatch)."
+  type        = string
+  default     = ""
+}
+
+variable "enable_dns_dashboard" {
+  description = "Create a CloudWatch dashboard for the central DNS hub (firewall match volume, endpoint query volume/health, top actioned domains)."
+  type        = bool
+  default     = true
+}
+
+variable "aws_region" {
+  description = "AWS region, used for CloudWatch dashboard widget metric/log queries."
+  type        = string
+  default     = "eu-west-2"
+}
+
 
 ######
 # Routing
