@@ -178,6 +178,40 @@ variable "dns_firewall_advanced_confidence_threshold" {
   }
 }
 
+######################
+## Observability
+######################
+
+variable "enable_resolver_query_logging" {
+  description = "Create a Route 53 Resolver query log config -> CloudWatch and associate it with the VPC. Needed to see DNS Firewall Advanced ALERT-mode matches for tuning."
+  type        = bool
+  default     = true
+}
+
+variable "resolver_query_log_retention_days" {
+  description = "CloudWatch Logs retention (days) for the Resolver query log group."
+  type        = number
+  default     = 90
+}
+
+variable "enable_dns_firewall_alarms" {
+  description = "Create CloudWatch alarms on DNS Firewall Advanced rule matches (one per detector)."
+  type        = bool
+  default     = true
+}
+
+variable "dns_firewall_alarm_threshold" {
+  description = "Threshold (matched query count per 5-minute period) above which the Advanced-rule alarm fires."
+  type        = number
+  default     = 1
+}
+
+variable "dns_firewall_alarm_sns_topic_arn" {
+  description = "Optional SNS topic ARN for alarm/ok actions. Empty string = no notification action (alarm still visible in CloudWatch)."
+  type        = string
+  default     = ""
+}
+
 
 ######
 # Routing
