@@ -189,9 +189,9 @@ variable "enable_resolver_query_logging" {
 }
 
 variable "resolver_query_log_retention_days" {
-  description = "CloudWatch Logs retention (days) for the Resolver query log group."
+  description = "CloudWatch Logs retention (days) for the Resolver query log group. Default 365 to satisfy CKV_AWS_338 (>= 1 year)."
   type        = number
-  default     = 90
+  default     = 365
 }
 
 variable "enable_dns_firewall_alarms" {

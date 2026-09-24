@@ -12,14 +12,69 @@
 ###############################################################################
 
 ########################################
-# Resolver query logging -> CloudWatch
+# Resolver query logging -> CloudWatch (KMS-encrypted)
 ########################################
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+# KMS key to encrypt the Resolver query log group (CKV_AWS_158). Mirrors the
+# r53-public-zone query-log key convention: CloudWatch Logs service principal
+# allowed, scoped via the encryption-context condition to this log-group path.
+resource "aws_kms_key" "resolver_query_log_key" {
+  count = var.enable_resolver_query_logging ? 1 : 0
+
+  description             = "KMS key for Route 53 Resolver query log encryption (${var.vpc_name})"
+  enable_key_rotation     = true
+  deletion_window_in_days = 7
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "Enable IAM User Permissions"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        Sid       = "Allow CloudWatch Logs"
+        Effect    = "Allow"
+        Principal = { Service = "logs.${data.aws_region.current.region}.amazonaws.com" }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/route53resolver/*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = merge(
+    var.tags,
+    {
+      Environment = "prod"
+      Account     = "Network"
+      Component   = "r53-query-logging"
+    }
+  )
+}
 
 resource "aws_cloudwatch_log_group" "resolver_query_log" {
   count = var.enable_resolver_query_logging ? 1 : 0
 
   name              = "/aws/route53resolver/${var.vpc_name}-query-logs"
   retention_in_days = var.resolver_query_log_retention_days
+  kms_key_id        = aws_kms_key.resolver_query_log_key[0].arn
 
   tags = merge(
     var.tags,
