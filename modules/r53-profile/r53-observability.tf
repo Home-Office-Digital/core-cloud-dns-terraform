@@ -162,7 +162,7 @@ resource "aws_cloudwatch_metric_alarm" "firewall_match_volume" {
 resource "aws_cloudwatch_dashboard" "dns" {
   count = var.enable_dns_dashboard ? 1 : 0
 
-  dashboard_name = "cc-dns-${var.vpc_name}"
+  dashboard_name = "${var.vpc_name}-dns-dashboard"
 
   dashboard_body = jsonencode({
     widgets = [
