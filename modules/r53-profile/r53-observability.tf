@@ -28,6 +28,14 @@ resource "aws_kms_key" "resolver_query_log_key" {
   enable_key_rotation     = true
   deletion_window_in_days = 7
 
+  # The apply role (assumed via OIDC) creates the key but is not itself named as
+  # a policy principal; KMS's CreateKey lockout check then rejects the policy
+  # ("will not allow you to update the key policy in the future"), even though
+  # the account root retains kms:* here. Account IAM (via the root statement)
+  # can still administer the key, so bypass the per-call lockout safety check.
+  # See https://repost.aws/knowledge-center/update-key-policy-future
+  bypass_policy_lockout_safety_check = true
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
