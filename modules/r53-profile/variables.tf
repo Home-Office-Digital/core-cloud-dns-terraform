@@ -23,13 +23,13 @@ variable "vpc_id" {
 variable "poise_domain_names" {
   type = list(string)
   # example:
-  # default = ["poise.homeoffice.local", "immigrationservices.phz"]
+  # default = ["example.internal", "example.phz"]
 }
 
 variable "poise_dns_ips" {
   type = list(string)
   # example:
-  # default = ["10.228.8.69", "10.228.9.69"]
+  # default = ["192.0.2.10", "192.0.2.11"]
 }
 
 variable "ebsa_notprod_domain_names" {
@@ -43,19 +43,19 @@ variable "ebsa_prod_domain_names" {
 variable "ebsa_notprod_dns_ips" {
   type = list(string)
   # example:
-  # default = ["10.223.6.134", "10.223.6.6"]
+  # default = ["192.0.2.20", "192.0.2.21"]
 }
 
 variable "ebsa_prod_dns_ips" {
   type = list(string)
   # example:
-  # default = ["10.223.2.134", "10.223.2.6"]
+  # default = ["192.0.2.30", "192.0.2.31"]
 }
 
 variable "apa_hob_ibm_preprod_domain_names" {
   type = list(string)
   # example:
-  # default = ["bmps.homeoffice.gov.uk"]
+  # default = ["example.com"]
 }
 
 variable "apa_hob_ibm_preprod_dns_ips" {
@@ -65,7 +65,7 @@ variable "apa_hob_ibm_preprod_dns_ips" {
 variable "apa_hob_ibm_prod_domain_names" {
   type = list(string)
   # example:
-  # default = ["bmps.homeoffice.gov.uk"]
+  # default = ["example.com"]
 }
 
 variable "apa_hob_ibm_prod_dns_ips" {
@@ -82,7 +82,7 @@ variable "ncsc_dns_ips" {
   description = "List of NCSC PDNS IP addresses"
   type        = list(string)
   # example:
-  # default = ["10.228.10.10", "10.228.11.10"]
+  # default = ["192.0.2.40", "192.0.2.41"]
 }
 
 
