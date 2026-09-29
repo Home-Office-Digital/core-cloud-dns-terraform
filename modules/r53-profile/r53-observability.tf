@@ -1,22 +1,36 @@
 ###############################################################################
-# DNS observability — Resolver query logging + CloudWatch metric alarms
+# DNS observability — CloudWatch alarms + dashboard (+ optional query logging)
 #
-# Purpose: make DNS Firewall Advanced ALERT mode actionable. Query logging
-# records every query and the DNS Firewall action taken (so ALERT matches are
-# visible for tuning before any BLOCK); CloudWatch alarms surface spikes in
-# Advanced-rule matches.
+# Purpose: make DNS Firewall Advanced ALERT mode actionable — alarm on match
+# volume and surface DNS-Firewall-actioned domains on a dashboard.
 #
-# DNS Firewall itself already publishes metrics to the AWS/Route53Resolver
-# namespace automatically — no config needed for the metrics to exist. This
-# file adds the log sink and alarms on top of them.
+# Query logging: OFF by default. In estates where the VPC already has managed
+# Resolver query logging (e.g. AWS Landing Zone Accelerator associates an
+# org-wide query-log config), this module must NOT create its own — Route 53
+# allows only one query-log association per VPC per destination type, so a
+# second one fails with RSLVR-01306. Point the dashboard at the existing log
+# group via var.dashboard_query_log_group_name instead. Only enable
+# enable_resolver_query_logging where no such managed logging exists.
 ###############################################################################
-
-########################################
-# Resolver query logging -> CloudWatch (KMS-encrypted)
-########################################
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
+
+locals {
+  # Log group the dashboard's Logs Insights panel reads DNS Firewall actions
+  # from. Prefer an externally-managed group (e.g. the LZA query-log group);
+  # else this module's own group when it manages logging; else empty.
+  dashboard_log_group = (
+    var.dashboard_query_log_group_name != "" ? var.dashboard_query_log_group_name :
+    var.enable_resolver_query_logging ? aws_cloudwatch_log_group.resolver_query_log[0].name :
+    ""
+  )
+}
+
+########################################
+# Resolver query logging -> CloudWatch (KMS-encrypted)
+# OFF by default — only for estates without managed (e.g. LZA) query logging.
+########################################
 
 # KMS key to encrypt the Resolver query log group (CKV_AWS_158). Mirrors the
 # r53-public-zone query-log key convention: CloudWatch Logs service principal
@@ -234,7 +248,7 @@ resource "aws_cloudwatch_dashboard" "dns" {
         properties = {
           title  = "Top DNS Firewall-actioned domains (query logs)"
           region = var.aws_region
-          query  = "SOURCE '${var.enable_resolver_query_logging ? aws_cloudwatch_log_group.resolver_query_log[0].name : ""}' | fields query_name, firewall_rule_action | filter ispresent(firewall_rule_action) and firewall_rule_action != 'NONE' | stats count(*) as hits by query_name, firewall_rule_action | sort hits desc | limit 25"
+          query  = "SOURCE '${local.dashboard_log_group}' | fields query_name, firewall_rule_action | filter ispresent(firewall_rule_action) and firewall_rule_action != 'NONE' | stats count(*) as hits by query_name, firewall_rule_action | sort hits desc | limit 25"
         }
       }
     ]
