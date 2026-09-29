@@ -183,9 +183,15 @@ variable "dns_firewall_advanced_confidence_threshold" {
 ######################
 
 variable "enable_resolver_query_logging" {
-  description = "Create a Route 53 Resolver query log config -> CloudWatch and associate it with the VPC. Needed to see DNS Firewall Advanced ALERT-mode matches for tuning."
+  description = "Create a Route 53 Resolver query log config -> CloudWatch and associate it with the VPC. Leave false where the VPC already has managed query logging (e.g. AWS LZA associates an org-wide config) — Route 53 allows only one association per VPC per destination type, so a second fails with RSLVR-01306. When false, set dashboard_query_log_group_name to the existing group."
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "dashboard_query_log_group_name" {
+  description = "Name of an existing Resolver query-log CloudWatch log group for the dashboard's Logs Insights panel to read (e.g. the AWS LZA query-log group). Used when enable_resolver_query_logging is false. Empty = use this module's own group (only valid when logging is enabled)."
+  type        = string
+  default     = ""
 }
 
 variable "resolver_query_log_retention_days" {
