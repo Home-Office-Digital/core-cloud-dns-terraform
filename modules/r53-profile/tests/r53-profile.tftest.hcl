@@ -102,6 +102,11 @@ run "plan_r53_profile" {
   }
 
   assert {
+    condition     = alltrue([for r in aws_route53_resolver_firewall_rule.advanced_threat : r.action == "ALERT"])
+    error_message = "Advanced detectors should default to ALERT when no per-detector action is set."
+  }
+
+  assert {
     condition     = length(aws_subnet.cc_inbound_endpoint_subnet) == length(var.inbound_resolver_subnet_cidrs)
     error_message = "Inbound subnet count should match inbound resolver CIDR count."
   }
@@ -129,6 +134,73 @@ run "plan_r53_profile" {
   assert {
     condition     = aws_ram_principal_association.cc_org_association.principal == var.cc_aws_orgnisation_arn
     error_message = "RAM principal association should use configured organization ARN."
+  }
+}
+
+run "plan_advanced_per_detector_action_and_alarm" {
+  command = plan
+
+  variables {
+    # DNS_TUNNELING overrides to BLOCK; DGA inherits the ALERT default.
+    dns_firewall_advanced_action = "ALERT"
+    dns_firewall_advanced_detectors = [
+      { threat = "DNS_TUNNELING", priority = 50, action = "BLOCK" },
+      { threat = "DGA", priority = 60 },
+    ]
+    # Point the dashboard/metric-filter at an external log group so the
+    # query-log-derived advanced-detection alarm is created.
+    enable_dns_firewall_alarms     = true
+    dashboard_query_log_group_name = "external-resolver-query-logs"
+  }
+
+  assert {
+    condition     = aws_route53_resolver_firewall_rule.advanced_threat["DNS_TUNNELING"].action == "BLOCK"
+    error_message = "DNS_TUNNELING should use its per-detector BLOCK action."
+  }
+
+  assert {
+    condition     = aws_route53_resolver_firewall_rule.advanced_threat["DNS_TUNNELING"].block_response == "NODATA"
+    error_message = "A BLOCK detector should set block_response = NODATA."
+  }
+
+  assert {
+    condition     = aws_route53_resolver_firewall_rule.advanced_threat["DGA"].action == "ALERT"
+    error_message = "DGA should inherit the ALERT default when no per-detector action is set."
+  }
+
+  assert {
+    condition     = aws_route53_resolver_firewall_rule.advanced_threat["DGA"].block_response == null
+    error_message = "An ALERT detector should not set a block_response."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_metric_filter.advanced_detection) == 1
+    error_message = "Advanced-detection metric filter should be created when a log group is configured and alarms are enabled."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.advanced_detection) == 1
+    error_message = "Advanced-detection alarm should be created when a log group is configured and alarms are enabled."
+  }
+}
+
+run "plan_advanced_detection_alarm_skipped_without_log_group" {
+  command = plan
+
+  variables {
+    enable_dns_firewall_alarms     = true
+    enable_resolver_query_logging  = false
+    dashboard_query_log_group_name = ""
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_metric_filter.advanced_detection) == 0
+    error_message = "Advanced-detection metric filter should be skipped when no query-log group is available."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.advanced_detection) == 0
+    error_message = "Advanced-detection alarm should be skipped when no query-log group is available."
   }
 }
 
