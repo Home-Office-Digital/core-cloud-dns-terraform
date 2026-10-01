@@ -338,16 +338,19 @@ resource "aws_cloudwatch_dashboard" "dns" {
       # query, so a spike on the metric panel can be inspected query-by-query
       # (use the widget's "open in Logs Insights" action to drill in with the
       # dashboard time range). Advanced rules are identified by an ALERT/BLOCK
-      # action with an EMPTY firewall_domain_list_id (domain-list rules populate
-      # that field; dns_threat_protection rules do not). Only shown when a
-      # readable query-log group is configured.
+      # action where firewall_domain_list_id is the literal string "EMPTY":
+      # domain-list rules populate that field with an rslvr-fdl-* id, while
+      # dns_threat_protection (Advanced) rules record it as "EMPTY" (verified
+      # against the live Resolver query logs — the field is present with value
+      # "EMPTY", not absent/empty-string). Only shown when a readable query-log
+      # group is configured.
       local.dashboard_log_group != "" ? [
         {
           type = "log", x = 0, y = 18, width = 24, height = 6
           properties = {
             title  = "DNS Firewall Advanced detections — raw events (tunnelling / DGA)"
             region = var.aws_region
-            query  = "SOURCE '${local.dashboard_log_group}' | fields @timestamp, query_name, firewall_rule_action, srcaddr | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and (not ispresent(firewall_domain_list_id) or firewall_domain_list_id = '') | sort @timestamp desc | limit 100"
+            query  = "SOURCE '${local.dashboard_log_group}' | fields @timestamp, query_name, firewall_rule_action, srcaddr | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | sort @timestamp desc | limit 100"
           }
         },
         # Top source IPs for Advanced detections — turns "something is noisy"
@@ -359,7 +362,7 @@ resource "aws_cloudwatch_dashboard" "dns" {
           properties = {
             title  = "DNS Firewall Advanced detections — top source IPs"
             region = var.aws_region
-            query  = "SOURCE '${local.dashboard_log_group}' | fields srcaddr, query_name | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and (not ispresent(firewall_domain_list_id) or firewall_domain_list_id = '') | stats count(*) as detections, count_distinct(query_name) as distinct_queries by srcaddr | sort detections desc | limit 25"
+            query  = "SOURCE '${local.dashboard_log_group}' | fields srcaddr, query_name | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | stats count(*) as detections, count_distinct(query_name) as distinct_queries by srcaddr | sort detections desc | limit 25"
           }
         }
       ] : []
