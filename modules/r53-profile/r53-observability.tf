@@ -333,36 +333,59 @@ resource "aws_cloudwatch_dashboard" "dns" {
         }
       }
       ],
-      # Advanced-detections raw-events widget — lists individual behavioural
-      # detections (tunnelling/DGA/dictionary-DGA) with timestamp, source and
-      # query, so a spike on the metric panel can be inspected query-by-query
-      # (use the widget's "open in Logs Insights" action to drill in with the
-      # dashboard time range). Advanced rules are identified by an ALERT/BLOCK
-      # action where firewall_domain_list_id is the literal string "EMPTY":
-      # domain-list rules populate that field with an rslvr-fdl-* id, while
-      # dns_threat_protection (Advanced) rules record it as "EMPTY" (verified
-      # against the live Resolver query logs — the field is present with value
-      # "EMPTY", not absent/empty-string). Only shown when a readable query-log
-      # group is configured.
+      # Advanced-detections log widgets — raw events, top source IPs, and a
+      # per-detector breakdown. Let a spike on the metric panel be inspected
+      # query-by-query (use each widget's "open in Logs Insights" action to
+      # drill in with the dashboard time range). Only shown when a readable
+      # query-log group is configured.
+      #
+      # Advanced detections are identified by an ALERT/BLOCK action where
+      # firewall_domain_list_id is the literal string "EMPTY": domain-list rules
+      # populate that field with an rslvr-fdl-* id, while dns_threat_protection
+      # (Advanced) rules record it as "EMPTY" (the field is present with value
+      # "EMPTY", not absent/empty-string).
+      #
+      # The query logs ALSO record which detector fired in the firewall_protection
+      # field (DNS_TUNNELING / DGA / DICTIONARY_DGA), so detections can be
+      # attributed per-detector directly from the logs — no separate rule groups
+      # needed. The per-detector breakdown widget uses this to inform the
+      # ALERT->BLOCK decision.
       local.dashboard_log_group != "" ? [
         {
           type = "log", x = 0, y = 18, width = 24, height = 6
           properties = {
-            title  = "DNS Firewall Advanced detections — raw events (tunnelling / DGA)"
+            title  = "DNS Firewall Advanced detections — raw events (detector / query / source)"
             region = var.aws_region
-            query  = "SOURCE '${local.dashboard_log_group}' | fields @timestamp, query_name, firewall_rule_action, srcaddr | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | sort @timestamp desc | limit 100"
+            query  = "SOURCE '${local.dashboard_log_group}' | fields @timestamp, firewall_protection, query_name, firewall_rule_action, srcaddr | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | sort @timestamp desc | limit 100"
           }
         },
         # Top source IPs for Advanced detections — turns "something is noisy"
         # into "this host is noisy", which is what false-positive triage needs
-        # (e.g. an internal service doing short/compound-label lookups). Same
-        # Advanced-only filter (ALERT/BLOCK with empty firewall_domain_list_id).
+        # (e.g. an internal service doing short/compound-label lookups). Grouped
+        # by detector (firewall_protection) too, so FP noise can be attributed.
+        # The detections:distinct_queries ratio is the triage signal — a high
+        # count with few distinct names is benign repetition; a ~1:1 ratio of
+        # detections to distinct names is the tunnelling/DGA signature.
         {
           type = "log", x = 0, y = 24, width = 24, height = 6
           properties = {
-            title  = "DNS Firewall Advanced detections — top source IPs"
+            title  = "DNS Firewall Advanced detections — top source IPs (by detector)"
             region = var.aws_region
-            query  = "SOURCE '${local.dashboard_log_group}' | fields srcaddr, query_name | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | stats count(*) as detections, count_distinct(query_name) as distinct_queries by srcaddr | sort detections desc | limit 25"
+            query  = "SOURCE '${local.dashboard_log_group}' | fields srcaddr, query_name, firewall_protection | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | stats count(*) as detections, count_distinct(query_name) as distinct_queries by srcaddr, firewall_protection | sort detections desc | limit 25"
+          }
+        },
+        # Per-detector breakdown — counts and distinct-name counts by detector
+        # (DNS_TUNNELING / DGA / DICTIONARY_DGA). This is the view that informs
+        # the ALERT->BLOCK decision: a detector dominated by many detections but
+        # few distinct names, or by NXDOMAIN/known-good names, is FP-prone and
+        # should stay in ALERT. firewall_protection is the per-detector field
+        # the Resolver query logs record for Advanced detections.
+        {
+          type = "log", x = 0, y = 30, width = 24, height = 6
+          properties = {
+            title  = "DNS Firewall Advanced detections — per-detector breakdown"
+            region = var.aws_region
+            query  = "SOURCE '${local.dashboard_log_group}' | fields firewall_protection, query_name, srcaddr | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | stats count(*) as detections, count_distinct(query_name) as distinct_names, count_distinct(srcaddr) as source_hosts by firewall_protection | sort detections desc"
           }
         }
       ] : []
