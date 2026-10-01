@@ -136,11 +136,16 @@ variable "dns_firewall_advanced_detectors" {
       threat   - one of "DNS_TUNNELING", "DGA", "DICTIONARY_DGA"
       priority - rule priority (lowest evaluated first; keep below the managed
                  (200+) and custom (300) domain-list rule priorities)
+      action   - (optional) "ALERT" or "BLOCK" for THIS detector. Omit/null to
+                 use var.dns_firewall_advanced_action as the default. This lets
+                 a validated detector (e.g. DNS_TUNNELING) move to BLOCK while
+                 less-certain ones (DGA, DICTIONARY_DGA) stay in ALERT.
     Set to [] to disable Advanced rules entirely.
   EOT
   type = list(object({
     threat   = string
     priority = number
+    action   = optional(string)
   }))
   default = [
     { threat = "DNS_TUNNELING", priority = 50 },
@@ -154,10 +159,18 @@ variable "dns_firewall_advanced_detectors" {
     ])
     error_message = "Each threat must be one of DNS_TUNNELING, DGA, or DICTIONARY_DGA."
   }
+
+  validation {
+    condition = alltrue([
+      for d in var.dns_firewall_advanced_detectors :
+      d.action == null ? true : contains(["ALERT", "BLOCK"], d.action)
+    ])
+    error_message = "Each detector action, when set, must be ALERT or BLOCK (ALLOW is not supported for Advanced rules)."
+  }
 }
 
 variable "dns_firewall_advanced_action" {
-  description = "Action for DNS Firewall Advanced rules. ALERT (monitor) or BLOCK. Start with ALERT and switch to BLOCK only after tuning."
+  description = "Default action for DNS Firewall Advanced rules that do not set a per-detector action. ALERT (monitor) or BLOCK. Start with ALERT and switch a detector to BLOCK only after tuning (set per-detector via dns_firewall_advanced_detectors[].action)."
   type        = string
   default     = "ALERT"
 

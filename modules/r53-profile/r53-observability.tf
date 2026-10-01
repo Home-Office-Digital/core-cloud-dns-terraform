@@ -173,6 +173,80 @@ resource "aws_cloudwatch_metric_alarm" "firewall_match_volume" {
 }
 
 ########################################
+# Advanced-detection alarm via query-log metric filter
+#
+# The AWS/Route53Resolver FirewallRuleGroupQueryVolume metric only counts
+# DOMAIN-LIST rule matches — it does NOT emit for Advanced (dns_threat_protection)
+# rules (DNS_TUNNELING / DGA / DICTIONARY_DGA). Confirmed empirically: 80+ ALERTs
+# in the query logs produced zero metric datapoints (core-cloud-dns-terragrunt#122).
+#
+# So for Advanced-detection alerting we derive a custom metric from the Resolver
+# query logs instead: a metric filter matches log events whose firewall_rule_action
+# is ALERT or BLOCK, and an alarm fires on that metric. This reads the same log
+# group the dashboard uses (typically the externally-managed LZA query-log group).
+#
+# Requires a readable query-log group (local.dashboard_log_group). If none is
+# configured, the filter/alarm are skipped.
+########################################
+
+locals {
+  # Only create the Advanced-detection metric filter/alarm when we have a log
+  # group to read and alarms are enabled.
+  enable_advanced_detection_alarm = var.enable_dns_firewall_alarms && local.dashboard_log_group != ""
+
+  advanced_detection_metric_namespace = "CoreCloud/DNSFirewall"
+  advanced_detection_metric_name      = "${var.rule_group_name}-advanced-detection-matches"
+}
+
+resource "aws_cloudwatch_log_metric_filter" "advanced_detection" {
+  count = local.enable_advanced_detection_alarm ? 1 : 0
+
+  name           = "cc-dns-firewall-${var.rule_group_name}-advanced-detection"
+  log_group_name = local.dashboard_log_group
+
+  # Route 53 Resolver query logs are JSON. firewall_rule_action is populated
+  # only when a firewall rule (domain-list OR Advanced) matched with alert/block.
+  # Advanced detections surface here even though they don't emit the native
+  # CloudWatch metric. Match ALERT or BLOCK.
+  pattern = "{ ($.firewall_rule_action = \"ALERT\") || ($.firewall_rule_action = \"BLOCK\") }"
+
+  metric_transformation {
+    name          = local.advanced_detection_metric_name
+    namespace     = local.advanced_detection_metric_namespace
+    value         = "1"
+    default_value = "0"
+    unit          = "Count"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "advanced_detection" {
+  count = local.enable_advanced_detection_alarm ? 1 : 0
+
+  alarm_name          = "cc-dns-firewall-${var.rule_group_name}-advanced-detection"
+  alarm_description   = "DNS Firewall Advanced detection (DNS_TUNNELING / DGA / DICTIONARY_DGA) matched a query in ALERT or BLOCK mode. Derived from Resolver query logs because the native FirewallRuleGroupQueryVolume metric does not cover Advanced rules. Inspect the query logs (firewall_rule_action) to attribute. See core-cloud-dns-terragrunt#122."
+  namespace           = local.advanced_detection_metric_namespace
+  metric_name         = local.advanced_detection_metric_name
+  statistic           = "Sum"
+  comparison_operator = "GreaterThanThreshold"
+  threshold           = var.dns_firewall_alarm_threshold
+  period              = 300
+  evaluation_periods  = 1
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = var.dns_firewall_alarm_sns_topic_arn != "" ? [var.dns_firewall_alarm_sns_topic_arn] : []
+  ok_actions    = var.dns_firewall_alarm_sns_topic_arn != "" ? [var.dns_firewall_alarm_sns_topic_arn] : []
+
+  tags = merge(
+    var.tags,
+    {
+      Environment = "prod"
+      Account     = "Network"
+      Component   = "r53-firewall"
+    }
+  )
+}
+
+########################################
 # CloudWatch dashboard — central DNS view for the network hub
 #
 # This account owns the org-shared R53 Profile and all inbound/outbound
@@ -196,9 +270,16 @@ resource "aws_cloudwatch_dashboard" "dns" {
           view   = "timeSeries"
           stat   = "Sum"
           period = 300
-          metrics = [
-            ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = var.rule_group_name }]
-          ]
+          metrics = concat(
+            [
+              ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "${var.rule_group_name} (domain-list rules)" }]
+            ],
+            # Advanced detections (tunnelling/DGA) don't emit the native metric,
+            # so surface the query-log-derived metric here too.
+            local.enable_advanced_detection_alarm ? [
+              [local.advanced_detection_metric_namespace, local.advanced_detection_metric_name, { label = "Advanced detections (tunnelling/DGA)" }]
+            ] : []
+          )
         }
       },
       {

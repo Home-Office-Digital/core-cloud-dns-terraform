@@ -74,15 +74,16 @@ resource "aws_route53_resolver_firewall_rule" "advanced_threat" {
   for_each = { for d in var.dns_firewall_advanced_detectors : d.threat => d }
 
   name                   = "cc-adv-${lower(each.value.threat)}"
-  action                 = var.dns_firewall_advanced_action
+  action                 = coalesce(each.value.action, var.dns_firewall_advanced_action)
   firewall_rule_group_id = aws_route53_resolver_firewall_rule_group.rule_group.id
   priority               = each.value.priority
 
   dns_threat_protection = each.value.threat
   confidence_threshold  = var.dns_firewall_advanced_confidence_threshold
 
-  # NODATA only applies when blocking; harmless/ignored for ALERT.
-  block_response = var.dns_firewall_advanced_action == "BLOCK" ? "NODATA" : null
+  # NODATA only applies when blocking; harmless/ignored for ALERT. Per-detector
+  # action wins over the global default (e.g. DNS_TUNNELING=BLOCK, DGA=ALERT).
+  block_response = coalesce(each.value.action, var.dns_firewall_advanced_action) == "BLOCK" ? "NODATA" : null
 }
 
 # rule-group association
