@@ -349,6 +349,18 @@ resource "aws_cloudwatch_dashboard" "dns" {
             region = var.aws_region
             query  = "SOURCE '${local.dashboard_log_group}' | fields @timestamp, query_name, firewall_rule_action, srcaddr | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and (not ispresent(firewall_domain_list_id) or firewall_domain_list_id = '') | sort @timestamp desc | limit 100"
           }
+        },
+        # Top source IPs for Advanced detections — turns "something is noisy"
+        # into "this host is noisy", which is what false-positive triage needs
+        # (e.g. an internal service doing short/compound-label lookups). Same
+        # Advanced-only filter (ALERT/BLOCK with empty firewall_domain_list_id).
+        {
+          type = "log", x = 0, y = 24, width = 24, height = 6
+          properties = {
+            title  = "DNS Firewall Advanced detections — top source IPs"
+            region = var.aws_region
+            query  = "SOURCE '${local.dashboard_log_group}' | fields srcaddr, query_name | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and (not ispresent(firewall_domain_list_id) or firewall_domain_list_id = '') | stats count(*) as detections, count_distinct(query_name) as distinct_queries by srcaddr | sort detections desc | limit 25"
+          }
         }
       ] : []
     )
