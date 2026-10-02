@@ -266,21 +266,21 @@ resource "aws_cloudwatch_dashboard" "dns" {
       {
         type = "text", x = 0, y = 0, width = 24, height = 2
         properties = {
-          markdown = "# 🛡️ Core Cloud DNS — Firewall & Resolver\n**Estate-wide DNS view** for the network hub (`${var.vpc_name}`, ${var.aws_region}) · firewall detections · PDNS/POISE forwarding · resolver health · query-log drilldowns.\n\n*Tip: set the console to Dark mode via the top-right display settings. Advanced-detection panels use the query logs — click a panel's expand icon to open in Logs Insights.*"
+          markdown = "# 🛡️ Core Cloud DNS — Firewall & Resolver\n**Estate-wide DNS view** for the network hub (`${var.vpc_name}`, ${var.aws_region}) · firewall detections · PDNS/POISE forwarding · resolver health · query-log drilldowns.\n\n**Two detection types:** *Domain-list* = feed/reputation BLOCK rules (AWS-managed malware/botnet/GuardDuty + custom list). *Advanced* = behavioural tunnelling/DGA detection (ALERT), surfaced from the query logs because it does not emit the native metric.\n\n*Tip: set the console to Dark mode via the top-right display settings. Advanced-detection panels use the query logs — click a panel's expand icon to open in Logs Insights.*"
         }
       },
       # ── Headline tiles ────────────────────────────────────────────────────
       {
         type = "metric", x = 0, y = 2, width = 12, height = 4
         properties = {
-          title     = "Domain-list blocks (last 5m)"
+          title     = "Known-bad domain blocks — malware/botnet/custom lists (last 5m)"
           region    = var.aws_region
           view      = "singleValue"
           sparkline = true
           stat      = "Sum"
           period    = 300
           metrics = [
-            ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "Domain-list matches", color = "#1f77b4" }]
+            ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "Domain-list matches (feed/reputation BLOCK rules)", color = "#1f77b4" }]
           ]
         }
       },
@@ -306,7 +306,7 @@ resource "aws_cloudwatch_dashboard" "dns" {
       {
         type = "metric", x = 0, y = 7, width = 12, height = 6
         properties = {
-          title   = "Firewall match volume — domain-list vs Advanced"
+          title   = "Firewall match volume — domain-list (feed/reputation) vs Advanced (behavioural)"
           region  = var.aws_region
           view    = "timeSeries"
           stacked = false
@@ -320,7 +320,7 @@ resource "aws_cloudwatch_dashboard" "dns" {
           }
           metrics = concat(
             [
-              ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "Domain-list rules", color = "#1f77b4" }]
+              ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "Domain-list rules (malware/botnet/custom)", color = "#1f77b4" }]
             ],
             local.enable_advanced_detection_alarm ? [
               [local.advanced_detection_metric_namespace, local.advanced_detection_metric_name, { label = "Advanced (tunnelling/DGA)", color = "#d62728" }]
