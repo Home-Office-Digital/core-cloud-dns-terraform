@@ -262,70 +262,135 @@ resource "aws_cloudwatch_dashboard" "dns" {
 
   dashboard_body = jsonencode({
     widgets = concat([
+      # ── Title banner ──────────────────────────────────────────────────────
       {
-        type = "metric", x = 0, y = 0, width = 12, height = 6
+        type = "text", x = 0, y = 0, width = 24, height = 2
         properties = {
-          title  = "DNS Firewall — rule group match volume"
-          region = var.aws_region
-          view   = "timeSeries"
-          stat   = "Sum"
-          period = 300
+          markdown = "# 🛡️ Core Cloud DNS — Firewall & Resolver\n**Estate-wide DNS view** for the network hub (`${var.vpc_name}`, ${var.aws_region}) · firewall detections · PDNS/POISE forwarding · resolver health · query-log drilldowns.\n\n**Two detection types:** *Domain-list* = feed/reputation BLOCK rules (AWS-managed malware/botnet/GuardDuty + custom list). *Advanced* = behavioural tunnelling/DGA detection (ALERT), surfaced from the query logs because it does not emit the native metric.\n\n*Tip: set the console to Dark mode via the top-right display settings. Advanced-detection panels use the query logs — click a panel's expand icon to open in Logs Insights.*"
+        }
+      },
+      # ── Headline tiles ────────────────────────────────────────────────────
+      {
+        type = "metric", x = 0, y = 2, width = 12, height = 4
+        properties = {
+          title     = "Known-bad domain blocks — malware/botnet/custom lists (last 5m)"
+          region    = var.aws_region
+          view      = "singleValue"
+          sparkline = true
+          stat      = "Sum"
+          period    = 300
+          metrics = [
+            ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "Domain-list matches (feed/reputation BLOCK rules)", color = "#1f77b4" }]
+          ]
+        }
+      },
+      {
+        type = "metric", x = 12, y = 2, width = 12, height = 4
+        properties = {
+          title     = "Advanced detections — tunnelling / DGA (last 5m)"
+          region    = var.aws_region
+          view      = "singleValue"
+          sparkline = true
+          stat      = "Sum"
+          period    = 300
+          metrics = local.enable_advanced_detection_alarm ? [
+            [local.advanced_detection_metric_namespace, local.advanced_detection_metric_name, { label = "Advanced detections", color = "#d62728" }]
+          ] : []
+        }
+      },
+      # ── Firewall section ──────────────────────────────────────────────────
+      {
+        type       = "text", x = 0, y = 6, width = 24, height = 1
+        properties = { markdown = "## 🚨 Firewall detections" }
+      },
+      {
+        type = "metric", x = 0, y = 7, width = 12, height = 6
+        properties = {
+          title   = "Firewall match volume — domain-list (feed/reputation) vs Advanced (behavioural)"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+          stat    = "Sum"
+          period  = 300
+          yAxis   = { left = { min = 0 } }
+          annotations = {
+            horizontal = [
+              { label = "alarm threshold", value = var.dns_firewall_alarm_threshold, color = "#d62728" }
+            ]
+          }
           metrics = concat(
             [
-              ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "${var.rule_group_name} (domain-list rules)" }]
+              ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "Domain-list rules (malware/botnet/custom)", color = "#1f77b4" }]
             ],
-            # Advanced detections (tunnelling/DGA) don't emit the native metric,
-            # so surface the query-log-derived metric here too.
             local.enable_advanced_detection_alarm ? [
-              [local.advanced_detection_metric_namespace, local.advanced_detection_metric_name, { label = "Advanced detections (tunnelling/DGA)" }]
+              [local.advanced_detection_metric_namespace, local.advanced_detection_metric_name, { label = "Advanced (tunnelling/DGA)", color = "#d62728" }]
             ] : []
           )
         }
       },
       {
-        type = "metric", x = 12, y = 0, width = 12, height = 6
+        type = "metric", x = 12, y = 7, width = 12, height = 6
         properties = {
-          title  = "Outbound query volume — PDNS / POISE forwarding"
+          title  = "Resolver endpoint health (healthy ENIs)"
+          region = var.aws_region
+          view   = "gauge"
+          stat   = "Minimum"
+          period = 300
+          yAxis  = { left = { min = 0, max = 4 } }
+          annotations = {
+            horizontal = [
+              { label = "degraded", value = 0, fill = "below", color = "#d62728" },
+              { label = "ok", value = 2, fill = "above", color = "#2ca02c" }
+            ]
+          }
+          metrics = [
+            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_inbound_endpoint.id, { label = "Inbound", color = "#1f77b4" }],
+            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_ncsc_outbound_endpoint.id, { label = "NCSC outbound", color = "#9467bd" }],
+            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_poise_outbound_endpoint.id, { label = "POISE outbound", color = "#ff7f0e" }]
+          ]
+        }
+      },
+      # ── Resolver traffic section ──────────────────────────────────────────
+      {
+        type       = "text", x = 0, y = 13, width = 24, height = 1
+        properties = { markdown = "## 🌐 Resolver query volume" }
+      },
+      {
+        type = "metric", x = 0, y = 14, width = 12, height = 6
+        properties = {
+          title  = "Outbound — PDNS / POISE forwarding"
           region = var.aws_region
           view   = "timeSeries"
           stat   = "Sum"
           period = 300
+          yAxis  = { left = { min = 0 } }
           metrics = [
-            ["AWS/Route53Resolver", "OutboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_ncsc_outbound_endpoint.id, { label = "NCSC PDNS outbound" }],
-            ["AWS/Route53Resolver", "OutboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_poise_outbound_endpoint.id, { label = "POISE outbound" }]
+            ["AWS/Route53Resolver", "OutboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_ncsc_outbound_endpoint.id, { label = "NCSC PDNS outbound", color = "#9467bd" }],
+            ["AWS/Route53Resolver", "OutboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_poise_outbound_endpoint.id, { label = "POISE outbound", color = "#ff7f0e" }]
           ]
         }
       },
       {
-        type = "metric", x = 0, y = 6, width = 12, height = 6
+        type = "metric", x = 12, y = 14, width = 12, height = 6
         properties = {
           title  = "Inbound query volume"
           region = var.aws_region
           view   = "timeSeries"
           stat   = "Sum"
           period = 300
+          yAxis  = { left = { min = 0 } }
           metrics = [
-            ["AWS/Route53Resolver", "InboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_inbound_endpoint.id, { label = "Inbound endpoint" }]
+            ["AWS/Route53Resolver", "InboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_inbound_endpoint.id, { label = "Inbound endpoint", color = "#1f77b4" }]
           ]
         }
       },
+      # ── Query-log drilldowns section ──────────────────────────────────────
       {
-        type = "metric", x = 12, y = 6, width = 12, height = 6
-        properties = {
-          title  = "Resolver endpoint health (healthy ENIs)"
-          region = var.aws_region
-          view   = "timeSeries"
-          stat   = "Minimum"
-          period = 300
-          metrics = [
-            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_inbound_endpoint.id, { label = "Inbound" }],
-            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_ncsc_outbound_endpoint.id, { label = "NCSC outbound" }],
-            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_poise_outbound_endpoint.id, { label = "POISE outbound" }]
-          ]
-        }
+        type       = "text", x = 0, y = 20, width = 24, height = 1
+        properties = { markdown = "## 🔎 Query-log drilldowns" }
       },
       {
-        type = "log", x = 0, y = 12, width = 24, height = 6
+        type = "log", x = 0, y = 21, width = 24, height = 6
         properties = {
           title  = "Top DNS Firewall-actioned domains (query logs)"
           region = var.aws_region
@@ -333,36 +398,63 @@ resource "aws_cloudwatch_dashboard" "dns" {
         }
       }
       ],
-      # Advanced-detections raw-events widget — lists individual behavioural
-      # detections (tunnelling/DGA/dictionary-DGA) with timestamp, source and
-      # query, so a spike on the metric panel can be inspected query-by-query
-      # (use the widget's "open in Logs Insights" action to drill in with the
-      # dashboard time range). Advanced rules are identified by an ALERT/BLOCK
-      # action where firewall_domain_list_id is the literal string "EMPTY":
-      # domain-list rules populate that field with an rslvr-fdl-* id, while
-      # dns_threat_protection (Advanced) rules record it as "EMPTY" (verified
-      # against the live Resolver query logs — the field is present with value
-      # "EMPTY", not absent/empty-string). Only shown when a readable query-log
-      # group is configured.
+      # Advanced-detections log widgets — raw events, top source IPs, and a
+      # per-detector breakdown. Let a spike on the metric panel be inspected
+      # query-by-query (use each widget's "open in Logs Insights" action to
+      # drill in with the dashboard time range). Only shown when a readable
+      # query-log group is configured.
+      #
+      # Advanced detections are identified by an ALERT/BLOCK action where
+      # firewall_domain_list_id is the literal string "EMPTY": domain-list rules
+      # populate that field with an rslvr-fdl-* id, while dns_threat_protection
+      # (Advanced) rules record it as "EMPTY" (the field is present with value
+      # "EMPTY", not absent/empty-string).
+      #
+      # The query logs ALSO record which detector fired in the firewall_protection
+      # field (DNS_TUNNELING / DGA / DICTIONARY_DGA), so detections can be
+      # attributed per-detector directly from the logs — no separate rule groups
+      # needed. The per-detector breakdown widget uses this to inform the
+      # ALERT->BLOCK decision.
       local.dashboard_log_group != "" ? [
         {
-          type = "log", x = 0, y = 18, width = 24, height = 6
+          type       = "text", x = 0, y = 27, width = 24, height = 1
+          properties = { markdown = "## 🧬 Advanced detections (behavioural) — detector attribution & triage" }
+        },
+        {
+          type = "log", x = 0, y = 28, width = 24, height = 6
           properties = {
-            title  = "DNS Firewall Advanced detections — raw events (tunnelling / DGA)"
+            title  = "DNS Firewall Advanced detections — raw events (detector / query / source)"
             region = var.aws_region
-            query  = "SOURCE '${local.dashboard_log_group}' | fields @timestamp, query_name, firewall_rule_action, srcaddr | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | sort @timestamp desc | limit 100"
+            query  = "SOURCE '${local.dashboard_log_group}' | fields @timestamp, firewall_protection, query_name, firewall_rule_action, srcaddr | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | sort @timestamp desc | limit 100"
           }
         },
         # Top source IPs for Advanced detections — turns "something is noisy"
         # into "this host is noisy", which is what false-positive triage needs
-        # (e.g. an internal service doing short/compound-label lookups). Same
-        # Advanced-only filter (ALERT/BLOCK with empty firewall_domain_list_id).
+        # (e.g. an internal service doing short/compound-label lookups). Grouped
+        # by detector (firewall_protection) too, so FP noise can be attributed.
+        # The detections:distinct_queries ratio is the triage signal — a high
+        # count with few distinct names is benign repetition; a ~1:1 ratio of
+        # detections to distinct names is the tunnelling/DGA signature.
         {
-          type = "log", x = 0, y = 24, width = 24, height = 6
+          type = "log", x = 0, y = 34, width = 24, height = 6
           properties = {
-            title  = "DNS Firewall Advanced detections — top source IPs"
+            title  = "DNS Firewall Advanced detections — top source IPs (by detector)"
             region = var.aws_region
-            query  = "SOURCE '${local.dashboard_log_group}' | fields srcaddr, query_name | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | stats count(*) as detections, count_distinct(query_name) as distinct_queries by srcaddr | sort detections desc | limit 25"
+            query  = "SOURCE '${local.dashboard_log_group}' | fields srcaddr, query_name, firewall_protection | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | stats count(*) as detections, count_distinct(query_name) as distinct_queries by srcaddr, firewall_protection | sort detections desc | limit 25"
+          }
+        },
+        # Per-detector breakdown — counts and distinct-name counts by detector
+        # (DNS_TUNNELING / DGA / DICTIONARY_DGA). This is the view that informs
+        # the ALERT->BLOCK decision: a detector dominated by many detections but
+        # few distinct names, or by NXDOMAIN/known-good names, is FP-prone and
+        # should stay in ALERT. firewall_protection is the per-detector field
+        # the Resolver query logs record for Advanced detections.
+        {
+          type = "log", x = 0, y = 40, width = 24, height = 6
+          properties = {
+            title  = "DNS Firewall Advanced detections — per-detector breakdown"
+            region = var.aws_region
+            query  = "SOURCE '${local.dashboard_log_group}' | fields firewall_protection, query_name, srcaddr | filter (firewall_rule_action = 'ALERT' or firewall_rule_action = 'BLOCK') and firewall_domain_list_id = 'EMPTY' | stats count(*) as detections, count_distinct(query_name) as distinct_names, count_distinct(srcaddr) as source_hosts by firewall_protection | sort detections desc"
           }
         }
       ] : []
