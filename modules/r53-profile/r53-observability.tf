@@ -262,70 +262,135 @@ resource "aws_cloudwatch_dashboard" "dns" {
 
   dashboard_body = jsonencode({
     widgets = concat([
+      # ── Title banner ──────────────────────────────────────────────────────
       {
-        type = "metric", x = 0, y = 0, width = 12, height = 6
+        type = "text", x = 0, y = 0, width = 24, height = 2
         properties = {
-          title  = "DNS Firewall — rule group match volume"
-          region = var.aws_region
-          view   = "timeSeries"
-          stat   = "Sum"
-          period = 300
+          markdown = "# 🛡️ Core Cloud DNS — Firewall & Resolver\n**Estate-wide DNS view** for the network hub (`${var.vpc_name}`, ${var.aws_region}) · firewall detections · PDNS/POISE forwarding · resolver health · query-log drilldowns.\n\n*Tip: set the console to Dark mode via the top-right display settings. Advanced-detection panels use the query logs — click a panel's expand icon to open in Logs Insights.*"
+        }
+      },
+      # ── Headline tiles ────────────────────────────────────────────────────
+      {
+        type = "metric", x = 0, y = 2, width = 12, height = 4
+        properties = {
+          title     = "Domain-list blocks (last 5m)"
+          region    = var.aws_region
+          view      = "singleValue"
+          sparkline = true
+          stat      = "Sum"
+          period    = 300
+          metrics = [
+            ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "Domain-list matches", color = "#1f77b4" }]
+          ]
+        }
+      },
+      {
+        type = "metric", x = 12, y = 2, width = 12, height = 4
+        properties = {
+          title     = "Advanced detections — tunnelling / DGA (last 5m)"
+          region    = var.aws_region
+          view      = "singleValue"
+          sparkline = true
+          stat      = "Sum"
+          period    = 300
+          metrics = local.enable_advanced_detection_alarm ? [
+            [local.advanced_detection_metric_namespace, local.advanced_detection_metric_name, { label = "Advanced detections", color = "#d62728" }]
+          ] : []
+        }
+      },
+      # ── Firewall section ──────────────────────────────────────────────────
+      {
+        type       = "text", x = 0, y = 6, width = 24, height = 1
+        properties = { markdown = "## 🚨 Firewall detections" }
+      },
+      {
+        type = "metric", x = 0, y = 7, width = 12, height = 6
+        properties = {
+          title   = "Firewall match volume — domain-list vs Advanced"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+          stat    = "Sum"
+          period  = 300
+          yAxis   = { left = { min = 0 } }
+          annotations = {
+            horizontal = [
+              { label = "alarm threshold", value = var.dns_firewall_alarm_threshold, color = "#d62728" }
+            ]
+          }
           metrics = concat(
             [
-              ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "${var.rule_group_name} (domain-list rules)" }]
+              ["AWS/Route53Resolver", "FirewallRuleGroupQueryVolume", "FirewallRuleGroupId", aws_route53_resolver_firewall_rule_group.rule_group.id, { label = "Domain-list rules", color = "#1f77b4" }]
             ],
-            # Advanced detections (tunnelling/DGA) don't emit the native metric,
-            # so surface the query-log-derived metric here too.
             local.enable_advanced_detection_alarm ? [
-              [local.advanced_detection_metric_namespace, local.advanced_detection_metric_name, { label = "Advanced detections (tunnelling/DGA)" }]
+              [local.advanced_detection_metric_namespace, local.advanced_detection_metric_name, { label = "Advanced (tunnelling/DGA)", color = "#d62728" }]
             ] : []
           )
         }
       },
       {
-        type = "metric", x = 12, y = 0, width = 12, height = 6
+        type = "metric", x = 12, y = 7, width = 12, height = 6
         properties = {
-          title  = "Outbound query volume — PDNS / POISE forwarding"
+          title  = "Resolver endpoint health (healthy ENIs)"
+          region = var.aws_region
+          view   = "gauge"
+          stat   = "Minimum"
+          period = 300
+          yAxis  = { left = { min = 0, max = 4 } }
+          annotations = {
+            horizontal = [
+              { label = "degraded", value = 0, fill = "below", color = "#d62728" },
+              { label = "ok", value = 2, fill = "above", color = "#2ca02c" }
+            ]
+          }
+          metrics = [
+            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_inbound_endpoint.id, { label = "Inbound", color = "#1f77b4" }],
+            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_ncsc_outbound_endpoint.id, { label = "NCSC outbound", color = "#9467bd" }],
+            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_poise_outbound_endpoint.id, { label = "POISE outbound", color = "#ff7f0e" }]
+          ]
+        }
+      },
+      # ── Resolver traffic section ──────────────────────────────────────────
+      {
+        type       = "text", x = 0, y = 13, width = 24, height = 1
+        properties = { markdown = "## 🌐 Resolver query volume" }
+      },
+      {
+        type = "metric", x = 0, y = 14, width = 12, height = 6
+        properties = {
+          title  = "Outbound — PDNS / POISE forwarding"
           region = var.aws_region
           view   = "timeSeries"
           stat   = "Sum"
           period = 300
+          yAxis  = { left = { min = 0 } }
           metrics = [
-            ["AWS/Route53Resolver", "OutboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_ncsc_outbound_endpoint.id, { label = "NCSC PDNS outbound" }],
-            ["AWS/Route53Resolver", "OutboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_poise_outbound_endpoint.id, { label = "POISE outbound" }]
+            ["AWS/Route53Resolver", "OutboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_ncsc_outbound_endpoint.id, { label = "NCSC PDNS outbound", color = "#9467bd" }],
+            ["AWS/Route53Resolver", "OutboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_poise_outbound_endpoint.id, { label = "POISE outbound", color = "#ff7f0e" }]
           ]
         }
       },
       {
-        type = "metric", x = 0, y = 6, width = 12, height = 6
+        type = "metric", x = 12, y = 14, width = 12, height = 6
         properties = {
           title  = "Inbound query volume"
           region = var.aws_region
           view   = "timeSeries"
           stat   = "Sum"
           period = 300
+          yAxis  = { left = { min = 0 } }
           metrics = [
-            ["AWS/Route53Resolver", "InboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_inbound_endpoint.id, { label = "Inbound endpoint" }]
+            ["AWS/Route53Resolver", "InboundQueryVolume", "EndpointId", aws_route53_resolver_endpoint.cc_inbound_endpoint.id, { label = "Inbound endpoint", color = "#1f77b4" }]
           ]
         }
       },
+      # ── Query-log drilldowns section ──────────────────────────────────────
       {
-        type = "metric", x = 12, y = 6, width = 12, height = 6
-        properties = {
-          title  = "Resolver endpoint health (healthy ENIs)"
-          region = var.aws_region
-          view   = "timeSeries"
-          stat   = "Minimum"
-          period = 300
-          metrics = [
-            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_inbound_endpoint.id, { label = "Inbound" }],
-            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_ncsc_outbound_endpoint.id, { label = "NCSC outbound" }],
-            ["AWS/Route53Resolver", "EndpointHealthyENICount", "EndpointId", aws_route53_resolver_endpoint.cc_poise_outbound_endpoint.id, { label = "POISE outbound" }]
-          ]
-        }
+        type       = "text", x = 0, y = 20, width = 24, height = 1
+        properties = { markdown = "## 🔎 Query-log drilldowns" }
       },
       {
-        type = "log", x = 0, y = 12, width = 24, height = 6
+        type = "log", x = 0, y = 21, width = 24, height = 6
         properties = {
           title  = "Top DNS Firewall-actioned domains (query logs)"
           region = var.aws_region
@@ -352,7 +417,11 @@ resource "aws_cloudwatch_dashboard" "dns" {
       # ALERT->BLOCK decision.
       local.dashboard_log_group != "" ? [
         {
-          type = "log", x = 0, y = 18, width = 24, height = 6
+          type       = "text", x = 0, y = 27, width = 24, height = 1
+          properties = { markdown = "## 🧬 Advanced detections (behavioural) — detector attribution & triage" }
+        },
+        {
+          type = "log", x = 0, y = 28, width = 24, height = 6
           properties = {
             title  = "DNS Firewall Advanced detections — raw events (detector / query / source)"
             region = var.aws_region
@@ -367,7 +436,7 @@ resource "aws_cloudwatch_dashboard" "dns" {
         # count with few distinct names is benign repetition; a ~1:1 ratio of
         # detections to distinct names is the tunnelling/DGA signature.
         {
-          type = "log", x = 0, y = 24, width = 24, height = 6
+          type = "log", x = 0, y = 34, width = 24, height = 6
           properties = {
             title  = "DNS Firewall Advanced detections — top source IPs (by detector)"
             region = var.aws_region
@@ -381,7 +450,7 @@ resource "aws_cloudwatch_dashboard" "dns" {
         # should stay in ALERT. firewall_protection is the per-detector field
         # the Resolver query logs record for Advanced detections.
         {
-          type = "log", x = 0, y = 30, width = 24, height = 6
+          type = "log", x = 0, y = 40, width = 24, height = 6
           properties = {
             title  = "DNS Firewall Advanced detections — per-detector breakdown"
             region = var.aws_region
